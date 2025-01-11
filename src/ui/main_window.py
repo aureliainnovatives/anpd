@@ -141,6 +141,7 @@ class MainWindow(QMainWindow):
         self.current_source = None
         self.video_label.clear()
         self.status_label.setText("Status: Detection stopped")
+        
 
     def update_frame(self):
         ret, frame = self.camera.read()

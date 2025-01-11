@@ -5,10 +5,21 @@ from ultralytics import YOLO
 import easyocr
 from datetime import datetime
 import json  # Add this import
+import torch
+import platform
 
 class LicensePlateDetector:
     def __init__(self, model_path=None):
         # If no specific model provided, use the license plate model
+
+        if torch.cuda.is_available():
+            device = 'cuda'
+        elif platform.system() == 'Darwin' and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            device = 'mps'  # For Apple Silicon
+        else:
+            device = 'cpu'
+            
+        print(f"Using device: {device}")
 
         with open('../config.json') as config_file:  # Load config
            config = json.load(config_file)
