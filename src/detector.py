@@ -7,10 +7,15 @@ from datetime import datetime
 import json  # Add this import
 import torch
 import platform
+import sys
+from pathlib import Path
+
 
 class LicensePlateDetector:
     def __init__(self, model_path=None):
         # If no specific model provided, use the license plate model
+
+        ROOT_DIR = Path(__file__).resolve().parent.parent
 
         if torch.cuda.is_available():
             device = 'cuda'
@@ -21,11 +26,13 @@ class LicensePlateDetector:
             
         print(f"Using device: {device}")
 
-        with open('../config.json') as config_file:  # Load config
-           config = json.load(config_file)
+        config_path = os.path.join(ROOT_DIR, 'config.json')
+        with open(config_path) as config_file:
+            config = json.load(config_file)
         
         if model_path is None or model_path == "yolov8n.pt":
-             model_path = config['model_path']   # Update this path to your model location
+            # Use absolute path for model
+            model_path = os.path.join(ROOT_DIR, config['model_path'])
             
         self.model = YOLO(model_path)
         self.class_names = ['license_plate']

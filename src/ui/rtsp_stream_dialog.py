@@ -2,14 +2,19 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,QLineEdit, QPushButton, QComboBox, QCheckBox)
 from PyQt6.QtCore import Qt
 import json  # Add this import
+from pathlib import Path
+import os
 
 class RTSPStreamDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("RTSP Stream Connection")
         self.setMinimumWidth(500)
-
-        with open('../config.json') as config_file:  # Load config
+        ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+        
+        # Load config using absolute path
+        config_path = os.path.join(ROOT_DIR, 'config.json')
+        with open(config_path) as config_file:
             config = json.load(config_file)
         
         # Create layout

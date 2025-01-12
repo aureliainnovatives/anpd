@@ -3,17 +3,27 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap, QImage
 import cv2
 import os
+from pathlib import Path
 from ui.rtsp_handler import RTSPHandler
 from detector import LicensePlateDetector
 from .rtsp_stream_dialog import RTSPStreamDialog
+from detector_worker import DetectionWorker
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        self.detection_worker = None
         self.rtsp_handler = RTSPHandler()
         self.setWindowTitle("License Plate Detection")
         self.setMinimumSize(1000, 700)
-        self.detector = LicensePlateDetector("C:\\Users\\suraj\\OneDrive\\Desktop\\ALL DEVELPMENT\\PYTHON\\YOLO11\\models\\NPDv1.0.pt")
+        ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+        
+        # Initialize detector with absolute path
+        model_path = os.path.join(ROOT_DIR, 'models', 'NPDv1.0.pt')
+        self.detector = LicensePlateDetector(model_path)
+      
+        # self.detector = LicensePlateDetector("C:\\Users\\suraj\\OneDrive\\Desktop\\ALL DEVELPMENT\\PYTHON\\YOLO11\\models\\NPDv1.0.pt")
         
         self.camera = None
         self.video_path = None
@@ -113,59 +123,124 @@ class MainWindow(QMainWindow):
             self.status_label.setText("Status: No video selected")
 
     def start_detection(self):
+        """Start detection in background thread"""
         if self.is_camera:
-            self.camera = cv2.VideoCapture(0)
-            if not self.camera.isOpened():
-                self.status_label.setText("Status: Error - Cannot open camera")
-                return
+            source = 0
         else:
-            if self.video_path:
-                self.camera = cv2.VideoCapture(self.video_path)
-                if not self.camera.isOpened():
-                    self.status_label.setText("Status: Error - Cannot open video source")
-                    return
-            else:
+            if not self.video_path:
                 self.status_label.setText("Status: No video source selected")
                 return
+            source = self.video_path
 
-        self.timer.start(30)
+        # Create and start worker thread
+        self.detection_worker = DetectionWorker(
+            detector=self.detector,
+            video_source=source,
+            is_camera=self.is_camera
+        )
+
+        # Connect signals
+        self.detection_worker.frame_ready.connect(self.update_frame)
+        self.detection_worker.error.connect(self.handle_detection_error)
+        self.detection_worker.finished.connect(self.handle_detection_finished)
+
+        # Update UI
         self.detection_active = True
         self.status_label.setText("Status: Detection running...")
+        
+        # Start worker
+        self.detection_worker.start()
+    # def start_detection(self):
+    #     if self.is_camera:
+    #         self.camera = cv2.VideoCapture(0)
+    #         if not self.camera.isOpened():
+    #             self.status_label.setText("Status: Error - Cannot open camera")
+    #             return
+    #     else:
+    #         if self.video_path:
+    #             self.camera = cv2.VideoCapture(self.video_path)
+    #             if not self.camera.isOpened():
+    #                 self.status_label.setText("Status: Error - Cannot open video source")
+    #                 return
+    #         else:
+    #             self.status_label.setText("Status: No video source selected")
+    #             return
+
+    #     self.timer.start(30)
+    #     self.detection_active = True
+    #     self.status_label.setText("Status: Detection running...")
+
 
     def stop_detection(self):
-        self.timer.stop()
-        if self.camera is not None:
-            self.camera.release()
-            self.camera = None
+        """Stop detection thread"""
+        if self.detection_worker and self.detection_worker.isRunning():
+            self.detection_worker.stop()
+            self.detection_worker = None
+
         self.detection_active = False
         self.current_source = None
         self.video_label.clear()
         self.status_label.setText("Status: Detection stopped")
+
+    # def stop_detection(self):
+    #     self.timer.stop()
+    #     if self.camera is not None:
+    #         self.camera.release()
+    #         self.camera = None
+    #     self.detection_active = False
+    #     self.current_source = None
+    #     self.video_label.clear()
+    #     self.status_label.setText("Status: Detection stopped")
         
 
-    def update_frame(self):
-        ret, frame = self.camera.read()
-        if ret:
-            if not self.is_camera and self.camera.get(cv2.CAP_PROP_POS_FRAMES) == self.camera.get(cv2.CAP_PROP_FRAME_COUNT):
-                self.stop_detection()
-                self.status_label.setText("Status: Video playback completed")
-                return
+    # def update_frame(self):
+    #     ret, frame = self.camera.read()
+    #     if ret:
+    #         if not self.is_camera and self.camera.get(cv2.CAP_PROP_POS_FRAMES) == self.camera.get(cv2.CAP_PROP_FRAME_COUNT):
+    #             self.stop_detection()
+    #             self.status_label.setText("Status: Video playback completed")
+    #             return
 
-            frame_with_detection = self.detector.detect(frame)
-            height, width, channel = frame_with_detection.shape
+    #         frame_with_detection = self.detector.detect(frame)
+    #         height, width, channel = frame_with_detection.shape
+    #         bytes_per_line = 3 * width
+    #         q_image = QImage(frame_with_detection.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
+    #         pixmap = QPixmap.fromImage(q_image)
+    #         scaled_pixmap = pixmap.scaled(self.video_label.size(), Qt.AspectRatioMode.KeepAspectRatio)
+    #         self.video_label.setPixmap(scaled_pixmap)
+    #     else:
+    #         self.stop_detection()
+    #         self.status_label.setText("Status: Error reading frame")
+
+    # def closeEvent(self, event):
+    #     self.stop_detection()
+    #     event.accept()
+
+    def update_frame(self, frame):
+            """Update frame from worker thread"""
+            height, width, channel = frame.shape
             bytes_per_line = 3 * width
-            q_image = QImage(frame_with_detection.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
+            q_image = QImage(frame.data, width, height, bytes_per_line, 
+                            QImage.Format.Format_RGB888).rgbSwapped()
             pixmap = QPixmap.fromImage(q_image)
-            scaled_pixmap = pixmap.scaled(self.video_label.size(), Qt.AspectRatioMode.KeepAspectRatio)
+            scaled_pixmap = pixmap.scaled(self.video_label.size(), 
+                                        Qt.AspectRatioMode.KeepAspectRatio)
             self.video_label.setPixmap(scaled_pixmap)
-        else:
+
+    def handle_detection_error(self, error_message):
+            """Handle errors from detection thread"""
             self.stop_detection()
-            self.status_label.setText("Status: Error reading frame")
+            self.status_label.setText(f"Status: Error - {error_message}")
+
+    def handle_detection_finished(self):
+            """Handle detection completion"""
+            self.stop_detection()
+            self.status_label.setText("Status: Video playback completed")
 
     def closeEvent(self, event):
-        self.stop_detection()
-        event.accept()
-
+            """Clean up resources when closing the window"""
+            self.stop_detection()
+            event.accept()
 
 # from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout)
 # from PyQt6.QtCore import Qt, QTimer
