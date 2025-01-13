@@ -16,19 +16,24 @@ class LicensePlateDetector:
         # If no specific model provided, use the license plate model
 
         ROOT_DIR = Path(__file__).resolve().parent.parent
-
+        config_path = os.path.join(ROOT_DIR, 'config.json')
+        with open(config_path) as config_file:
+            config = json.load(config_file)
+        print(f"PyTorch CUDA available: {torch.cuda.is_available()}")
         if torch.cuda.is_available():
+            print(f"Current CUDA device: {torch.cuda.current_device()}")
+            print(f"CUDA device name: {torch.cuda.get_device_name()}")
             device = 'cuda'
         elif platform.system() == 'Darwin' and hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
             device = 'mps'  # For Apple Silicon
         else:
             device = 'cpu'
+
             
+        device = config.get('device', 'cpu')  # Default to 'cpu' if not specified
         print(f"Using device: {device}")
 
-        config_path = os.path.join(ROOT_DIR, 'config.json')
-        with open(config_path) as config_file:
-            config = json.load(config_file)
+    
         
         if model_path is None or model_path == "yolov8n.pt":
             # Use absolute path for model
@@ -50,7 +55,7 @@ class LicensePlateDetector:
         # Dictionary to track saved plates with their confidence scores
         self.saved_plates = {}  # Format: {plate_number: confidence}
         self._load_existing_plates()
-
+        print(f"Model device: {next(self.model.parameters()).device}")
     def _load_existing_plates(self):
         """Load existing plate numbers and their confidence from the output directory"""
         for filename in os.listdir(self.output_dir):
