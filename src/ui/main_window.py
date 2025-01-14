@@ -87,23 +87,12 @@ class MainWindow(QMainWindow):
             if settings['url']:
                 self.is_camera = False
                 self.video_path = settings['url']
-                if self.rtsp_handler.connect(settings['url'], settings['protocol']):
-                    stream_info = self.rtsp_handler.get_stream_info()
-                    if stream_info:
-                        self.start_detection()
-                        self.current_source = 'rtsp'
-                        info_text = (
-                            f"Status: RTSP stream connected\n"
-                            f"URL: {settings['url']}\n"
-                            f"Resolution: {stream_info['width']}x{stream_info['height']}\n"
-                            f"FPS: {stream_info['fps']}\n"
-                            f"Codec: {stream_info['codec_name']}\n"
-                            f"Protocol: {settings['protocol']}"
-                        )
-                        self.status_label.setText(info_text)
-                    else:
-                        self.status_label.setText("Status: Error - Cannot retrieve stream information")
+                if self.rtsp_handler.connect(settings['url']):
+                    self.start_detection()
+                    self.current_source = 'rtsp'
                 else:
+                    self.status_label.setText("Status: Error - Cannot connect to RTSP stream")
+            else:
                     self.status_label.setText("Status: Error - Cannot connect to RTSP stream")
         else:
             self.status_label.setText("Status: RTSP connection cancelled")

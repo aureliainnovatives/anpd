@@ -1,5 +1,9 @@
 {
     "model_path": "models/NPDv1.0.pt",
     "rtsp_url": "rtsp://nhai:NhaiBdr$123@122.187.87.67:554/unicast/c2/s0/live",
-     "device": "cpu"
+     "device": "cpu",
+     "video_settings": {
+        "target_fps": 30,
+        "playback_speed": 1.0
+    }
 }

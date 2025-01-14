@@ -140,7 +140,7 @@ class LicensePlateDetector:
             self.plate_records[key] = (text, conf, missing + 1)
         
         # Run detection
-        results = self.model(frame, conf=0.25)
+        results = self.model(frame, conf=0.25 , verbose=False)
         
         # Process results
         for result in results:
