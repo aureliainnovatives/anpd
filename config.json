@@ -3,7 +3,7 @@
     "rtsp_url": "rtsp://nhai:NhaiBdr$123@122.187.87.67:554/unicast/c2/s0/live",
     "device": "cuda",
     "video_settings": {
-        "target_fps": 30,
+        "target_fps": 25,
         "playback_speed": 1.0,
         "frame_skip": 10,
         "max_queue_size": 8,

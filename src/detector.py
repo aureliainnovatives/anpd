@@ -119,8 +119,8 @@ class LicensePlateDetector:
             print(f"OCR Error: {e}")
         return None, 0.0
 
-    def save_plate(self, plate_image, plate_text, confidence):
-        """Save plate image and details if not saved or if confidence is higher"""
+    def save_plate(self, plate_image, full_image, plate_text, confidence, x1, y1, x2, y2):
+        """Save plate image, full vehicle image and details if not saved or if confidence is higher"""
         if not plate_text or confidence < 0.5:  # Skip low confidence or empty readings
             return False
             
@@ -131,18 +131,51 @@ class LicensePlateDetector:
             if confidence <= self.saved_plates[clean_text]:
                 return False
         
-        # Save or update files
-        img_filename = f"{clean_text}.jpg"
-        txt_filename = f"{clean_text}.txt"
-        img_path = os.path.join(self.output_dir, img_filename)
-        txt_path = os.path.join(self.output_dir, txt_filename)
+        # Generate unique identifier using timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        base_filename = f"{clean_text}_{timestamp}"
         
         # Save files
-        cv2.imwrite(img_path, plate_image)
+        plate_img_path = os.path.join(self.output_dir, f"{base_filename}_plate.jpg")    
+        vehicle_img_path = os.path.join(self.output_dir, f"{base_filename}_vehicle.jpg")
+        txt_path = os.path.join(self.output_dir, f"{base_filename}.txt")
+        
+        # Save plate image
+        cv2.imwrite(plate_img_path, plate_image)
+        
+        # Save detection area image with detection box
+        if self.detection_region:
+            # Get detection region coordinates
+            frame_height, frame_width = full_image.shape[:2]
+            region_x1 = int(self.detection_region['x1'] * frame_width)
+            region_y1 = int(self.detection_region['y1'] * frame_height)
+            region_x2 = int(self.detection_region['x2'] * frame_width)
+            region_y2 = int(self.detection_region['y2'] * frame_height)
+            
+            # Crop to detection region
+            detection_area = full_image[region_y1:region_y2, region_x1:region_x2]
+            
+            # Draw detection box relative to region
+            rel_x1 = x1 - region_x1
+            rel_y1 = y1 - region_y1
+            rel_x2 = x2 - region_x1
+            rel_y2 = y2 - region_y1
+            cv2.rectangle(detection_area, (rel_x1, rel_y1), (rel_x2, rel_y2), (0, 255, 0), 2)
+            cv2.imwrite(vehicle_img_path, detection_area)
+        else:
+            # If no detection region, save full frame with box
+            vehicle_image = full_image.copy()
+            cv2.rectangle(vehicle_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.imwrite(vehicle_img_path, vehicle_image)
+        
+        # Save text file
         with open(txt_path, 'w') as f:
             f.write(f"Plate Number: {plate_text}\n")
             f.write(f"Confidence: {confidence:.2f}\n")
             f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Plate Image: {os.path.basename(plate_img_path)}\n")
+            f.write(f"Vehicle Image: {os.path.basename(vehicle_img_path)}\n")
+            f.write(f"Detection Coordinates: x1={x1}, y1={y1}, x2={x2}, y2={y2}\n")
         
         # Update confidence in our tracking dictionary
         self.saved_plates[clean_text] = confidence
@@ -256,8 +289,8 @@ class LicensePlateDetector:
                 if plate_region.size > 0:
                     text, ocr_conf = self.read_plate(plate_region, location_key)
                     if text:
-                        # Try to save the plate
-                        self.save_plate(plate_region, text, ocr_conf)
+                        # Try to save the plate and vehicle image
+                        self.save_plate(plate_region, frame, text, ocr_conf, x1, y1, x2, y2)
                         
                         # Display the text on frame
                         plate_text = f"Plate: {text} (Conf: {ocr_conf:.2f})"
