@@ -8,6 +8,7 @@ import torch
 import platform
 import sys
 from pathlib import Path
+from data_sender import DataSender  # Add this import
 
 
 class LicensePlateDetector:
@@ -54,6 +55,10 @@ class LicensePlateDetector:
         self.saved_plates = {}  # Format: {plate_number: confidence}
         self._load_existing_plates()
         print(f"Model device: {next(self.model.parameters()).device}")
+        
+        # Add these lines in the __init__ method of LicensePlateDetector
+        self.data_sender = DataSender(host='localhost', port=8080)  # Set your desired host and port
+
     def _get_device(self):
         """Determine the best available device based on config and system capabilities"""
         try:
@@ -176,6 +181,9 @@ class LicensePlateDetector:
             f.write(f"Plate Image: {os.path.basename(plate_img_path)}\n")
             f.write(f"Vehicle Image: {os.path.basename(vehicle_img_path)}\n")
             f.write(f"Detection Coordinates: x1={x1}, y1={y1}, x2={x2}, y2={y2}\n")
+        
+        # Send data to the specified port
+        self.data_sender.send_data(vehicle_img_path, plate_img_path, txt_path)
         
         # Update confidence in our tracking dictionary
         self.saved_plates[clean_text] = confidence
