@@ -1,0 +1,32 @@
+{
+    "model_path": "models/NPDv1.0.pt",
+    "rtsp_url": "rtsp://nhai:NhaiBdr$123@122.187.87.67:554/unicast/c2/s0/live",
+    "device": "cuda",
+    "host": "localhost",
+    "port": 8080,
+    "video_settings": {
+        "target_fps": 25,
+        "playback_speed": 1.0,
+        "frame_skip": 10,
+        "max_queue_size": 8,
+        "cpu_optimization": true,
+        "decode_buffer_size": 2,
+        "low_latency_mode": true
+    },
+    "ocr_settings": {
+        "gpu": true,
+        "batch_size": 1,
+        "text_recognition_threshold": 0.5
+    },
+    "performance": {
+        "enable_monitoring": false,
+        "log_interval": 5
+    },
+    "detection_region": {
+        "enabled": true,
+        "x1": 0.4,
+        "y1": 0.3,
+        "x2": 0.7,
+        "y2": 0.8
+    }
+}

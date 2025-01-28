@@ -1,0 +1,10 @@
+/venv
+/build
+/dist
+/node_modules
+/public
+/static
+__pycache__
+detected_plates
+bin
+ReceivedData
