@@ -24,7 +24,10 @@ class LicensePlateDetector:
         
         # Get model path from config
        # model_path = self._get_model_path(config.get('model_path', 'models/NPDv1.0.pt'))  # Use model path from config
-        model_path = os.path.join(sys._MEIPASS, 'NPDv1.0.pt')
+        if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
+            model_path = os.path.join(sys._MEIPASS, 'NPDv1.0.pt')
+        else:
+            model_path = os.path.join(Path(__file__).resolve().parent.parent, 'models', 'NPDv1.0.pt')  # Use the model path from the script's directory
         print(f"Using model path: {model_path}")  # Debugging output
         
         # Load detection region config
