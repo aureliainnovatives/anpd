@@ -26,3 +26,5 @@ C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C#
 C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\obj\Debug\net9.0\ANPD {Reciever) application.pdb
 C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\obj\Debug\net9.0\ANPD {Reciever) application.genruntimeconfig.cache
 C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\obj\Debug\net9.0\ref\ANPD {Reciever) application.dll
+C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\obj\Debug\net9.0\ANPD {Reciever) application.sourcelink.json
+C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\bin\Debug\net9.0\config.json

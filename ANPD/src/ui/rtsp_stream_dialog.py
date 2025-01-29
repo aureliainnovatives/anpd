@@ -1,20 +1,28 @@
-
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,QLineEdit, QPushButton, QComboBox, QCheckBox)
 import json  # Add this import
 from pathlib import Path
 import os
+import sys
+
+def _get_config_path():
+    """Get the path to the config.json file."""
+    if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
+        return os.path.join(sys._MEIPASS, 'config.json')
+    else:
+        return os.path.join(Path(__file__).resolve().parent.parent.parent, 'config.json')
 
 class RTSPStreamDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("RTSP Stream Connection")
         self.setMinimumWidth(500)
-        ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+        
+   #     ROOT_DIR = Path(__file__).resolve().parent.parent.parent
         
         # Load config using absolute path
-        config_path = os.path.join(ROOT_DIR, 'config.json')
+        config_path = _get_config_path()
         with open(config_path) as config_file:
-            config = json.load(config_file)
+          config = json.load(config_file)
         
         # Create layout
         layout = QVBoxLayout(self)

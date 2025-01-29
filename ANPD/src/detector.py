@@ -6,17 +6,27 @@ from datetime import datetime
 import json  # Add this import
 from pathlib import Path
 from data_sender import DataSender  # Add this import
+import sys
 
+def _get_config_path():
+    """Get the path to the config.json file."""
+    if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
+        return os.path.join(sys._MEIPASS, 'config.json')
+    else:
+        return os.path.join(Path(__file__).resolve().parent.parent, 'config.json')
 
 class LicensePlateDetector:
     def __init__(self, model_path=None):
-        # Get the root directory of the project
-        ROOT_DIR = Path(__file__).resolve().parent.parent
+        # Load config using the new method
+        config_path = _get_config_path()
+        with open(config_path) as f:
+            config = json.load(f)
         
-        if model_path is None:
-            # Use default model path relative to project root
-            model_path = os.path.join(ROOT_DIR, 'models', 'NPDv1.0.pt')
-            
+        # Get model path from config
+       # model_path = self._get_model_path(config.get('model_path', 'models/NPDv1.0.pt'))  # Use model path from config
+        model_path = os.path.join(sys._MEIPASS, 'NPDv1.0.pt')
+        print(f"Using model path: {model_path}")  # Debugging output
+        
         # Load detection region config
         self.detection_region = None
         self._load_detection_region()
@@ -53,10 +63,18 @@ class LicensePlateDetector:
         self._load_existing_plates()
         print(f"Model device: {next(self.model.parameters()).device}")
         
-        # Add these lines in the __init__ method of LicensePlateDetector
-        with open(os.path.join(ROOT_DIR, 'config.json')) as f:
+        # Load config using the new method
+        config_path = _get_config_path()
+        with open(config_path) as f:
             config = json.load(f)
         self.data_sender = DataSender(host=config['host'], port=config['port'])  # Set host and port from config
+
+    def _get_model_path(self, model_name):
+        """Get the path to the model file."""
+        if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
+            return os.path.join(sys._MEIPASS, 'models', model_name)  # Ensure it points to the correct directory
+        else:
+            return os.path.join(Path(__file__).resolve().parent.parent, 'models', model_name)
 
     def _get_device(self):
         """Determine the best available device based on config and system capabilities"""

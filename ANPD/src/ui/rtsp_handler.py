@@ -4,6 +4,10 @@ import logging
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from collections import deque
 from datetime import datetime
+import os
+import sys
+import json
+from pathlib import Path
 
 class RTSPHandler:
     def __init__(self):
@@ -16,6 +20,9 @@ class RTSPHandler:
         self.logger = self._setup_logger()
         self.last_url = None
         
+        # Load config
+        self.config = self._load_config()
+
     def _setup_logger(self):
         logger = logging.getLogger('RTSPHandler')
         logger.setLevel(logging.DEBUG)
@@ -24,6 +31,23 @@ class RTSPHandler:
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         return logger
+
+    def _get_config_path(self):
+        """Get the path to the config.json file."""
+        if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
+            return os.path.join(sys._MEIPASS, 'config.json')
+        else:
+            return os.path.join(Path(__file__).resolve().parent.parent.parent, 'config.json')
+
+    def _load_config(self):
+        """Load the configuration file."""
+        config_path = self._get_config_path()
+        try:
+            with open(config_path, 'r') as file:
+                return json.load(file)
+        except Exception as e:
+            print(f"Error loading config: {e}")
+            return {}
 
     def connect(self, url, protocol=None):
         max_retries = 3

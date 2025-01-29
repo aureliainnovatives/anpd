@@ -34,3 +34,48 @@ AUTOMATIC NUMBER0-PLATE DETECTION
      - 122.187.87.67  --> ip address
      - 554            --> port only for rtsp protocol
      - unicast        --> protocol
+
+
+
+
+--------------------------> EXE GENERATE <---------------------------------
+
+
+FOR MAIN PROJECT ->
+
+1. Open a terminal in the ANPD (Project directory).
+2. run command : 
+    pyinstaller --onefile --clean --noconsole --add-data "config.json;." --add-data "models/NPDv1.0.pt;." src/main.py  
+3. In the ANPD/dist folder, a `main.exe` will be generated.
+4. place config.json in same directory where exe will located.
+5. Place `NPDv1.0.pt` in the `models` folder within the same directory, 
+   so the folder structure will be :
+
+            ANPD/  
+            │── dist/  
+            │   │── main.exe
+            │   │── config.json  
+            │   │── models/  
+            │   │   │── NPDv1.0.pt  
+
+
+FOR RECIEVER PROJECT ->
+1. Open a terminal in the ANPD Receiver (C# application) project directory.
+2. run command : 
+    dotnet build 
+3. In the `bin/debug/net9.0` folder, a `.exe` file and some other files like `.dll`, `.pdb`, and `.json` will be generated.
+4. Place `config.json` in same directory where `.exe`  and other files will located.
+5. so the folder structure will be :
+
+            ANPD_Receiver/  
+            │── bin/  
+            │   │── Debug/  
+            │   │   │── net9.0/  
+            │   │   │   │── Receiver.exe  
+            │   │   │   │── config.json  
+            │   │   │   │── OtherDependency.dll  
+            │   │   │   │── DebugSymbols.pdb  
+            │   │   │   │── Settings.json 
+            │── Program.cs  
+            │── config.json
+  

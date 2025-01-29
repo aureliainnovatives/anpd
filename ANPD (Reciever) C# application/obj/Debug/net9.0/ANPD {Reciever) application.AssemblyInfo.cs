@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ANPD {Reciever) application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+37d77b313dca359bc3a21de713fd220bbc478c85")]
 [assembly: System.Reflection.AssemblyProductAttribute("ANPD {Reciever) application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ANPD {Reciever) application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
