@@ -213,7 +213,9 @@ class LicensePlateDetector:
     def _load_detection_region(self):
         """Load and validate detection region from config"""
         try:
-            with open(os.path.join(Path(__file__).resolve().parent.parent, 'config.json')) as f:
+            # Use the correct config path resolution method
+            config_path = _get_config_path()
+            with open(config_path) as f:
                 config = json.load(f)
                 region_config = config.get('detection_region', {})
                 if region_config.get('enabled', False):
