@@ -84,7 +84,8 @@ class LicensePlateDetector:
         try:
             import torch
             # Check config first
-            with open(os.path.join(Path(__file__).resolve().parent.parent, 'config.json')) as f:
+            config_path = _get_config_path()
+            with open(config_path) as f:
                 config = json.load(f)
                 preferred_device = config.get('device', 'cuda').lower()
                 
