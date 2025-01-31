@@ -45,7 +45,7 @@ def show_expiration_message():
     msg.exec()
 
 def check_expiration(use_gui=False):
-    expiration_date = datetime(2025, 1, 31, 4, 19)
+    expiration_date = datetime(2025, 2, 15, 23, 59)
     if datetime.now() > expiration_date:
         if use_gui:
             show_expiration_message()

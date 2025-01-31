@@ -44,6 +44,8 @@ AUTOMATIC NUMBER0-PLATE DETECTION
 FOR MAIN PROJECT ->
 
 1. Open a terminal in the ANPD (Project directory).
+2. install pyinstaller using pip command 
+    pip install pyinstaller
 2. run command : 
     pyinstaller --onefile --clean --windowed --add-data "config.json;." --add-data "models/NPDv1.0.pt;." src/main.py  
 3. In the ANPD/dist folder, a `main.exe` will be generated.
