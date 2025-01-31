@@ -14,7 +14,7 @@
 
 import sys
 from ui.main_window import MainWindow
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from datetime import datetime
 from PyQt6.QtCore import QTimer  # Import QTimer for periodic checks
 import os
@@ -36,23 +36,38 @@ try:
 except Exception as e:
     print(f"Error loading config: {e}")
 
-def check_expiration():
-    # Define the expiration date and time
-    expiration_date = datetime(2025, 2, 15, 23, 59)  # Set your desired expiration date and time
-    
-    # Check if the current date and time is past the expiration date
+def show_expiration_message():
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Icon.Critical)
+    msg.setWindowTitle("Application Expired")
+    msg.setText("This application has expired and can no longer be used.")
+    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+    msg.exec()
+
+def check_expiration(use_gui=False):
+    expiration_date = datetime(2025, 1, 31, 4, 19)
     if datetime.now() > expiration_date:
-        print("This application has expired and cannot be run.")
-        QApplication.quit()  # Exit the application if expired
+        if use_gui:
+            show_expiration_message()
+            QApplication.quit()
+        else:
+            print("Application has expired. Please contact support.", file=sys.stderr)
+            sys.exit(1)
+        return True
+    return False
 
 def main():
-    app = QApplication(sys.argv)
+    app = QApplication(sys.argv)  # Create QApplication first
+    
+    # Now safe to use GUI elements
+    if check_expiration(use_gui=True):
+        sys.exit(1)
+    
     window = MainWindow()
     
-    # Set up a timer to check expiration every minute (60000 milliseconds)
     timer = QTimer()
-    timer.timeout.connect(check_expiration)
-    timer.start(20000)  # Check every 6 seconds
+    timer.timeout.connect(lambda: check_expiration(use_gui=True))
+    timer.start(10000)
 
     window.show()
     sys.exit(app.exec())

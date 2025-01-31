@@ -45,7 +45,7 @@ FOR MAIN PROJECT ->
 
 1. Open a terminal in the ANPD (Project directory).
 2. run command : 
-    pyinstaller --onefile --clean --noconsole --add-data "config.json;." --add-data "models/NPDv1.0.pt;." src/main.py  
+    pyinstaller --onefile --clean --windowed --add-data "config.json;." --add-data "models/NPDv1.0.pt;." src/main.py  
 3. In the ANPD/dist folder, a `main.exe` will be generated.
 4. place config.json in same directory where exe will located.
 5. Place `NPDv1.0.pt` in the `models` folder within the same directory, 
