@@ -6,6 +6,9 @@
     <RootNamespace>ANPD__Reciever__application</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>  <!-- or win-x86/win-arm64 -->
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>  <!-- Optional: creates single .exe -->
   </PropertyGroup>
 
 

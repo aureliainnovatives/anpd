@@ -46,11 +46,11 @@ FOR MAIN PROJECT ->
 1. Open a terminal in the ANPD (Project directory).
 2. install pyinstaller using pip command 
     pip install pyinstaller
-2. run command : 
+3. run command : 
     pyinstaller --onefile --clean --windowed --add-data "config.json;." --add-data "models/NPDv1.0.pt;." src/main.py  
-3. In the ANPD/dist folder, a `main.exe` will be generated.
-4. place config.json in same directory where exe will located.
-5. Place `NPDv1.0.pt` in the `models` folder within the same directory, 
+4. In the ANPD/dist folder, a `main.exe` will be generated.
+5. place config.json in same directory where exe will located.
+6. Place `NPDv1.0.pt` in the `models` folder within the same directory, 
    so the folder structure will be :
 
             ANPD/  
@@ -63,8 +63,10 @@ FOR MAIN PROJECT ->
 
 FOR RECIEVER PROJECT ->
 1. Open a terminal in the ANPD Receiver (C# application) project directory.
-2. run command : 
-    dotnet build 
+2. run commands : 
+   i.  without runtime included = dotnet build
+   ii. with runtime = dotnet publish -r win-x64 --self-contained true -p:PublishSingleFile=true 
+    ( Note : if the application is not included runtime then we need to install dependancies to run the application )
 3. In the `bin/debug/net9.0` folder, a `.exe` file and some other files like `.dll`, `.pdb`, and `.json` will be generated.
 4. Place `config.json` in same directory where `.exe`  and other files will located.
 5. so the folder structure will be :

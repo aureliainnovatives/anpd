@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "PRGll77Lrco=",
+  "dgSpecHash": "vtvJH6lqqIk=",
   "success": true,
   "projectFilePath": "C:\\Users\\suraj\\OneDrive\\Desktop\\ALL DEVELPMENT\\ASHOKA PROJECT\\ANPD (Reciever) C# application\\ANPD {Reciever) application.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\suraj\\.nuget\\packages\\microsoft.net.illink.tasks\\9.0.1\\microsoft.net.illink.tasks.9.0.1.nupkg.sha512",
+    "C:\\Users\\suraj\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\9.0.1\\microsoft.netcore.app.runtime.win-x64.9.0.1.nupkg.sha512",
+    "C:\\Users\\suraj\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\9.0.1\\microsoft.windowsdesktop.app.runtime.win-x64.9.0.1.nupkg.sha512",
+    "C:\\Users\\suraj\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\9.0.1\\microsoft.aspnetcore.app.runtime.win-x64.9.0.1.nupkg.sha512"
+  ],
   "logs": []
 }
