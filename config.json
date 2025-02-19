@@ -1,0 +1,94 @@
+{
+    "model_path": "models",
+    "device": "cuda",
+    "streams": [
+        {
+            "id": "stream1",
+            "rtsp_url": "rtsp://nhai:NhaiBdr$123@122.187.87.67:554/unicast/c2/s0/live",
+            "enabled": true,
+            "detection_region": {
+                "enabled": true,
+                "x1": 0.4,
+                "y1": 0.3,
+                "x2": 0.7,
+                "y2": 0.8
+            },
+            "data_sender": {
+                "host": "localhost",
+                "port": 8080
+            }
+        },
+        {
+            "id": "stream2",
+            "rtsp_url": "rtsp://nhai:Nhai@123@182.66.66.125:554/cam/realmonitor?channel=12&subtype=0",
+            "enabled": true,
+            "detection_region": {
+                "enabled": true,
+                "x1": 0.4,
+                "y1": 0.3,
+                "x2": 0.7,
+                "y2": 0.8
+            },
+            "data_sender": {
+                "host": "localhost",
+                "port": 8082
+            }
+        },
+        {
+            "id": "stream6",
+            "rtsp_url": "rtsp://nhai:NhaiBdr$123@122.187.87.67:554/unicast/c2/s0/live",
+            "enabled": true,
+            "detection_region": {
+                "enabled": true,
+                "x1": 0.4,
+                "y1": 0.3,
+                "x2": 0.7,
+                "y2": 0.8
+            },
+            "data_sender": {
+                "host": "localhost",
+                "port": 8080
+            }
+        },
+        {
+            "id": "stream7",
+            "rtsp_url": "rtsp://nhai:Nhai@123@182.66.66.125:554/cam/realmonitor?channel",
+            "enabled": true,
+            "detection_region": {
+                "enabled": true,
+                "x1": 0.0,
+                "y1": 0.0,
+                "x2": 0.0,
+                "y2": 0.0
+            },
+            "data_sender": {
+                "host": "localhost",
+                "port": 8080
+            }
+        }
+    ],
+    "video_settings": {
+        "target_fps": 25,
+        "playback_speed": 1.0,
+        "frame_skip": 20,
+        "max_queue_size": 8,
+        "cpu_optimization": true,
+        "decode_buffer_size": 2,
+        "low_latency_mode": true
+    },
+    "ocr_settings": {
+        "gpu": true,
+        "batch_size": 1,
+        "text_recognition_threshold": 0.5,
+        "logging": {
+            "enabled": true,
+            "level": "DEBUG",
+            "include_image_debug": false,
+            "log_confidence_threshold": 0.3
+        }
+    },
+    "performance": {
+        "enable_monitoring": false,
+        "log_interval": 5
+    }
+}
