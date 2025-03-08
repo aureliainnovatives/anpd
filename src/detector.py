@@ -16,8 +16,8 @@ import time
 
 def _get_config_path():
     """Get the path to the config.json file."""
-    if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
-        return os.path.join(sys._MEIPASS, 'config.json')
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(sys.executable), 'config.json')
     else:
         return os.path.join(Path(__file__).resolve().parent.parent, 'config.json')
 
@@ -35,10 +35,7 @@ class LicensePlateDetector:
                 self.config = json.load(f)  # Store config as instance variable
             
             # Get model path from config
-            if getattr(sys, 'frozen', False):
-                model_path = os.path.join(sys._MEIPASS, 'NPDv1.0.pt')
-            else:
-                model_path = os.path.join(Path(__file__).resolve().parent.parent, 'models', 'NPDv1.0.pt')
+            model_path = self._get_model_path()
             self.logger.info(f"Using model path: {model_path}")
             
             # Load detection region config
@@ -139,12 +136,15 @@ class LicensePlateDetector:
             self.logger.error(f"Failed to initialize License Plate Detector: {str(e)}")
             raise
 
-    def _get_model_path(self, model_name):
-        """Get the path to the model file."""
-        if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
-            return os.path.join(sys._MEIPASS, 'models', model_name)  # Ensure it points to the correct directory
-        else:
-            return os.path.join(Path(__file__).resolve().parent.parent, 'models', model_name)
+    def _get_model_path(self):
+        try:
+            if getattr(sys, 'frozen', False):
+                return os.path.join(os.path.dirname(sys.executable), 'models', 'NPDv1.0.pt')
+            else:
+                # Development mode
+                return os.path.join(Path(__file__).resolve().parent.parent, 'models', 'NPDv1.0.pt')
+        except Exception as e:
+            raise FileNotFoundError(f"Could not locate model file: {str(e)}")
 
     def _get_device(self):
         """Determine the best available device based on config and system capabilities"""

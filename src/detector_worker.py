@@ -6,6 +6,8 @@ import time
 import json
 import os
 from data_sender import DataSender
+import sys
+from pathlib import Path
 
 class DetectionWorker(QThread):
     frame_ready = pyqtSignal(object)
@@ -32,9 +34,20 @@ class DetectionWorker(QThread):
         self.process_thread = None
         self.frame_time = 1/self.config.get('video_settings', {}).get('target_fps', 30)
 
+    def _get_config_path(self):
+        """Get the path to the config.json file."""
+        if getattr(sys, 'frozen', False):
+            # If running as exe, get config from exe directory
+            return os.path.join(os.path.dirname(sys.executable), 'config.json')
+        else:
+            # Development mode
+            return os.path.join(Path(__file__).resolve().parent.parent, 'config.json')
+
     def _load_config(self):
+        """Load the configuration file."""
         try:
-            config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
+            config_path = self._get_config_path()
+            
             with open(config_path, 'r') as file:
                 return json.load(file)
         except Exception as e:

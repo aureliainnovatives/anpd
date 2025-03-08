@@ -82,29 +82,33 @@ class StreamWidget(QFrame):
     
     settingsClicked = pyqtSignal(str)  # Signal to show settings dialog
     maximizeClicked = pyqtSignal(object)  # Signal when maximize button clicked
-    deleteClicked = pyqtSignal(str)  # New signal for delete action
+    disableAllClicked = pyqtSignal(str)  # Signal to disable stream and detection
     
     def __init__(self, stream_id, parent=None):
         super().__init__(parent)
         self.stream_id = stream_id
         self.is_maximized = False
         self.is_display_enabled = True
-        self.loading_spinner = None  # Will be initialized in _init_ui
+        self.is_all_disabled = False
+        self.loading_spinner = None
+        self.current_layout = "2x2"
         
-        # Set initial frame style with red border
+        # Set initial frame style
         self.setStyleSheet("""
             QFrame {
-                border: 2px solid #f44336;  /* Red border */
+                border: 2px solid #f44336;
                 border-radius: 4px;
                 background-color: #ffffff;
-                padding: 0px;  /* Remove padding */
+                padding: 0px;
             }
             QLabel, QPushButton {
-                border: none;  /* Remove borders from child elements */
+                border: none;
             }
         """)
         
         self._init_ui()
+        # Don't set any initial status - will be set by update_stream_info
+        self.update_layout_style(self.current_layout)
         
     def _init_ui(self):
         # Main layout with proper spacing
@@ -170,9 +174,11 @@ class StreamWidget(QFrame):
             
         # Add display toggle button
         self.display_toggle_btn = QPushButton()
-        self.display_toggle_btn.setIcon(QIcon(os.path.join(icons_dir, 'eye.png')))
+        # Set initial icon based on display state (reversed logic)
+        icon_name = 'eye-off.png' if not self.is_display_enabled else 'eye.png'
+        self.display_toggle_btn.setIcon(QIcon(os.path.join(icons_dir, icon_name)))
         self.display_toggle_btn.setIconSize(QSize(16, 16))
-        self.display_toggle_btn.setToolTip("Show/Hide Stream Display")
+        self.display_toggle_btn.setToolTip("Hide Stream Display" if self.is_display_enabled else "Show Stream Display")
         self.display_toggle_btn.clicked.connect(self._toggle_display)
         
         self.maximize_btn = QPushButton()
@@ -181,13 +187,13 @@ class StreamWidget(QFrame):
         self.maximize_btn.setToolTip("Maximize/Restore")
         self.maximize_btn.clicked.connect(self._on_maximize)
         
-        # Replace start/stop button with delete button
-        self.delete_btn = QPushButton()
-        self.delete_btn.setIcon(QIcon(os.path.join(icons_dir, 'delete.png')))
-        self.delete_btn.setIconSize(QSize(16, 16))
-        self.delete_btn.setToolTip("Delete Stream")
-        self.delete_btn.clicked.connect(self._on_delete)
-        self.delete_btn.setStyleSheet("""
+        # Replace delete button with two disable buttons
+        self.disable_all_btn = QPushButton()
+        self.disable_all_btn.setIcon(QIcon(os.path.join(self._get_icons_dir(), 'stop.png')))
+        self.disable_all_btn.setIconSize(QSize(16, 16))
+        self.disable_all_btn.setToolTip("Disable Stream & Detection")
+        self.disable_all_btn.clicked.connect(self._toggle_disable_all)
+        self.disable_all_btn.setStyleSheet("""
             QPushButton {
                 border: 1px solid #cccccc;
                 padding: 4px;
@@ -197,24 +203,27 @@ class StreamWidget(QFrame):
                 min-height: 28px;
             }
             QPushButton:hover {
-                background-color: #ffebee;  /* Light red on hover */
-                border-color: #ef5350;
+                background-color: #ffebee;
+                border-color: #f44336;
             }
             QPushButton:pressed {
                 background-color: #ffcdd2;
                 border-color: #e53935;
             }
+            QPushButton:checked {
+                background-color: #f44336;
+                border-color: #d32f2f;
+            }
         """)
+        self.disable_all_btn.setCheckable(True)  # Make it toggleable
         
-        # Update button styles
+        # Update button style
         button_style = """
             QPushButton {
                 border: 1px solid #cccccc;
-                padding: 4px;
-                border-radius: 4px;
+                padding: 2px;
+                border-radius: 3px;
                 background-color: #f8f9fa;
-                min-width: 28px;
-                min-height: 28px;
             }
             QPushButton:hover {
                 background-color: #e9ecef;
@@ -228,15 +237,14 @@ class StreamWidget(QFrame):
                 background-color: #e9ecef;
                 border-color: #dee2e6;
                 color: #adb5bd;
+                opacity: 0.5;
             }
         """
-        
-        # Update button configurations
+
+        # Set initial button style
         for btn in [self.settings_btn, self.display_toggle_btn, 
-                    self.maximize_btn, self.delete_btn]:
+                    self.maximize_btn, self.disable_all_btn]:
             btn.setStyleSheet(button_style)
-            btn.setFixedSize(32, 32)  # Slightly larger for better touch targets
-            btn.setIconSize(QSize(20, 20))  # Slightly larger icons
             
         # Add spacing between buttons
         top_row.setSpacing(6)  # Add space between buttons
@@ -244,7 +252,7 @@ class StreamWidget(QFrame):
         top_row.addWidget(self.settings_btn)
         top_row.addWidget(self.display_toggle_btn)
         top_row.addWidget(self.maximize_btn)
-        top_row.addWidget(self.delete_btn)
+        top_row.addWidget(self.disable_all_btn)
         
         header_container.addLayout(top_row)
         
@@ -328,7 +336,7 @@ class StreamWidget(QFrame):
             }
         """)
         
-        self.status_label = QLabel("Initializing...")
+        self.status_label = QLabel("")  # Initialize with empty status
         self.status_label.setStyleSheet("""
             QLabel {
                 color: #333333;
@@ -351,20 +359,44 @@ class StreamWidget(QFrame):
         """Toggle stream display on/off"""
         self.is_display_enabled = not self.is_display_enabled
         
-        # Update icon based on state
-        icon_path = os.path.join(self._get_icons_dir(), 
-                                'eye-off.png' if self.is_display_enabled else 'eye.png')
-        self.display_toggle_btn.setIcon(QIcon(icon_path))
-        
-        # Toggle visibility of video and placeholder
-        self.video_label.setVisible(self.is_display_enabled)
+        # Update icon based on new state
+        icon_name = 'eye-off.png' if not self.is_display_enabled else 'eye.png'
+        self.display_toggle_btn.setIcon(QIcon(os.path.join(self._get_icons_dir(), icon_name)))
         
         # Update tooltip
-        action = "Hide" if self.is_display_enabled else "Show"
-        self.display_toggle_btn.setToolTip(f"{action} Stream Display")
+        self.display_toggle_btn.setToolTip("Hide Stream Display" if self.is_display_enabled else "Show Stream Display")
         
         # Clear the video label if display is disabled
         if not self.is_display_enabled:
+            # Show display disabled message with icon
+            self.video_label.setStyleSheet("""
+                QLabel {
+                    background-color: #f8f9fa;
+                    min-width: 320px;
+                    min-height: 240px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                }
+            """)
+            status_text = f"""
+                <div style='text-align: center;'>
+                    <img src='{os.path.join(self._get_icons_dir(), 'displaystopped.png')}' width='75' height='75'/>
+                    <p style='margin-top: 10px; color: #6c757d; font-size: 14px;'>
+                        Stream Display Disabled<br>
+                        <span style='font-size: 12px; color: #adb5bd;'>Click the eye button to show stream</span>
+                    </p>
+                </div>
+            """
+            self.video_label.setText(status_text)
+        else:
+            # Reset video label style for video display
+            self.video_label.setStyleSheet("""
+                QLabel {
+                    background-color: #000000;
+                    min-width: 320px;
+                    min-height: 240px;
+                }
+            """)
             self.video_label.clear()
         
     def _on_maximize(self):
@@ -376,51 +408,57 @@ class StreamWidget(QFrame):
                                 'minimize.png' if self.is_maximized else 'maximize.png')
         self.maximize_btn.setIcon(QIcon(icon_path))
         
-    def _on_delete(self):
-        """Handle delete button click"""
-        self.deleteClicked.emit(self.stream_id)
-        
     def update_frame(self, frame):
         """Update the displayed frame"""
+        # Don't update frame if stream is disabled
+        if self.is_all_disabled:
+            return
+
         if not self.is_display_enabled:
             return
         
-        if frame is not None:
-            height, width, channel = frame.shape
-            bytes_per_line = 3 * width
-            q_image = QImage(frame.data, width, height, bytes_per_line, 
-                           QImage.Format.Format_RGB888).rgbSwapped()
-            pixmap = QPixmap.fromImage(q_image)
-            
-            # Scale pixmap to fit widget while maintaining aspect ratio
-            widget_size = self.video_label.size()
-            if widget_size.width() > 0 and widget_size.height() > 0:  # Ensure valid size
-                scaled_pixmap = pixmap.scaled(
-                    widget_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
+        try:
+            if frame is not None:
+                height, width, channel = frame.shape
+                bytes_per_line = 3 * width
+                q_image = QImage(frame.data, width, height, bytes_per_line, 
+                               QImage.Format.Format_RGB888).rgbSwapped()
+                pixmap = QPixmap.fromImage(q_image)
                 
-                # Center the scaled pixmap in the label
-                self.video_label.setPixmap(scaled_pixmap)
-                
-                # Ensure spinner container matches video size
-                if hasattr(self, 'spinner_container'):
-                    self.spinner_container.setGeometry(0, 0, 
-                                                     widget_size.width(),
-                                                     widget_size.height())
-            
+                # Scale pixmap to fit widget while maintaining aspect ratio
+                widget_size = self.video_label.size()
+                if widget_size.width() > 0 and widget_size.height() > 0:  # Ensure valid size
+                    if not pixmap.isNull():  # Add check for null pixmap
+                        scaled_pixmap = pixmap.scaled(
+                            widget_size,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation
+                        )
+                        
+                        # Center the scaled pixmap in the label
+                        self.video_label.setPixmap(scaled_pixmap)
+                        
+                        # Ensure spinner container matches video size
+                        if hasattr(self, 'spinner_container'):
+                            self.spinner_container.setGeometry(0, 0, 
+                                                             widget_size.width(),
+                                                             widget_size.height())
+        except Exception as e:
+            print(f"Error updating frame: {str(e)}")
+        
     def resizeEvent(self, event):
         """Handle widget resize events"""
         super().resizeEvent(event)
         # Force update of video label size
-        if hasattr(self, 'video_label') and self.video_label.pixmap():
+        if hasattr(self, 'video_label') and self.video_label.pixmap() and not self.video_label.pixmap().isNull():
             current_pixmap = self.video_label.pixmap()
-            self.video_label.setPixmap(current_pixmap.scaled(
+            scaled_pixmap = current_pixmap.scaled(
                 self.video_label.size(),
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
-            ))
+            )
+            if not scaled_pixmap.isNull():
+                self.video_label.setPixmap(scaled_pixmap)
         
         # Update spinner container size
         if hasattr(self, 'spinner_container'):
@@ -430,8 +468,19 @@ class StreamWidget(QFrame):
         """Update the status text, indicator, and widget border"""
         self.status_label.setText(status)
         
+        # Update status based on stream state
+        if self.is_all_disabled:
+            self.status_label.setText("Stream & Detection Stopped")
+            self.status_indicator.setStyleSheet("""
+                QFrame {
+                    background-color: #f44336;  /* Red */
+                    border-radius: 4px;
+                }
+            """)
+            return
+
         if "connecting" in status.lower():
-            # Ensure spinner container covers the entire video area
+            # Yellow for connecting
             self.spinner_container.setGeometry(0, 0, 
                                              self.video_label.width(),
                                              self.video_label.height())
@@ -443,10 +492,10 @@ class StreamWidget(QFrame):
                     border-radius: 4px;
                 }
             """)
-            # Set yellow border for connecting state
+            # Yellow border
             self.setStyleSheet("""
                 QFrame {
-                    border: 2px solid #ffc107;  /* Yellow border */
+                    border: 2px solid #ffc107;
                     border-radius: 4px;
                     background-color: #ffffff;
                     padding: 0px;
@@ -456,6 +505,7 @@ class StreamWidget(QFrame):
                 }
             """)
         elif "error" in status.lower():
+            # Red for error
             self.spinner_container.hide()
             self.loading_spinner.stop()
             self.status_indicator.setStyleSheet("""
@@ -464,10 +514,9 @@ class StreamWidget(QFrame):
                     border-radius: 4px;
                 }
             """)
-            # Set red border for error state
             self.setStyleSheet("""
                 QFrame {
-                    border: 2px solid #f44336;  /* Red border */
+                    border: 2px solid #f44336;
                     border-radius: 4px;
                     background-color: #ffffff;
                     padding: 0px;
@@ -477,15 +526,16 @@ class StreamWidget(QFrame):
                 }
             """)
         else:
+            # Green for running/normal state
             self.spinner_container.hide()
             self.loading_spinner.stop()
             self.status_indicator.setStyleSheet("""
                 QFrame {
-                    background-color: #9e9e9e;  /* Gray */
+                    background-color: #4caf50;  /* Green */
                     border-radius: 4px;
                 }
             """)
-            # Set normal border for other states
+            # Normal border
             self.setStyleSheet("""
                 QFrame {
                     border: 1px solid #cccccc;
@@ -541,6 +591,15 @@ class StreamWidget(QFrame):
                 }
             """)
 
+            # Check stream state and update status immediately
+            if not stream_config.get('enabled', True):
+                self.update_disable_all_state(True)
+                self.set_status("Stream & Detection Stopped")
+            elif not stream_config.get('rtsp_url'):
+                self.set_status("No URL Configured")
+            else:
+                self.set_status("Waiting...")  # Only show waiting if enabled and has URL
+
     def setVisible(self, visible):
         """Override setVisible to handle visibility changes more efficiently"""
         if self.isVisible() == visible:
@@ -557,4 +616,115 @@ class StreamWidget(QFrame):
         """Override hide to handle hiding more efficiently"""
         if not self.isVisible():
             return
-        super().hide() 
+        super().hide()
+
+    def update_layout_style(self, layout_type):
+        """Update widget style based on layout type"""
+        self.current_layout = layout_type
+        
+        # Define sizes based on layout
+        button_size = QSize(25, 25) if layout_type == "2x3" else QSize(32, 32)
+        icon_size = QSize(16, 16) if layout_type == "2x3" else QSize(20, 20)
+        
+        # Update font sizes
+        title_font_size = "11px" if layout_type == "2x3" else "13px"
+        url_font_size = "10px" if layout_type == "2x3" else "11px"
+        status_font_size = "10px" if layout_type == "2x3" else "11px"
+        
+        # Update button sizes
+        for btn in [self.settings_btn, self.display_toggle_btn, 
+                   self.maximize_btn, self.disable_all_btn]:
+            btn.setFixedSize(button_size)
+            btn.setIconSize(icon_size)
+        
+        # Update title label style
+        self.title_label.setStyleSheet(f"""
+            QLabel {{
+                font-weight: bold;
+                font-size: {title_font_size};
+                color: #2c3e50;
+            }}
+        """)
+        
+        # Update URL label style
+        self.url_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {url_font_size};
+                color: #7f8c8d;
+                padding: 0px;
+                margin: 0px;
+            }}
+        """)
+        
+        # Update status label style
+        self.status_label.setStyleSheet(f"""
+            QLabel {{
+                color: #333333;
+                font-size: {status_font_size};
+            }}
+        """)
+
+    def _toggle_disable_all(self):
+        # Don't toggle button state here, let MainWindow control it
+        self.disableAllClicked.emit(self.stream_id)
+        # Reset button state to match current state
+        self.disable_all_btn.setChecked(self.is_all_disabled)
+
+    def update_disable_all_state(self, is_disabled):
+        """Update the button state and display after verification"""
+        self.is_all_disabled = is_disabled
+        self.disable_all_btn.setChecked(is_disabled)
+        
+        # Update display toggle button state
+        self.display_toggle_btn.setEnabled(not is_disabled)
+        
+        if is_disabled:
+            # Update button to show "play" state
+            self.disable_all_btn.setIcon(QIcon(os.path.join(self._get_icons_dir(), 'play.png')))
+            self.disable_all_btn.setToolTip("Enable Stream & Detection")
+            
+            # Force display off when stream is disabled
+            self.is_display_enabled = False
+            self.display_toggle_btn.setIcon(QIcon(os.path.join(self._get_icons_dir(), 'eye-off.png')))
+            self.display_toggle_btn.setToolTip("Display disabled while stream is stopped")
+            
+            # Show stopped status with icons
+            self.video_label.clear()
+            self.video_label.setStyleSheet("""
+                QLabel {
+                    background-color: #f8f9fa;
+                    min-width: 320px;
+                    min-height: 240px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                }
+            """)
+            status_text = f"""
+                <div style='text-align: center;'>
+                    <img src='{os.path.join(self._get_icons_dir(), 'detection-off.png')}' width='75' height='75'/>
+                    <p style='margin-top: 10px; color: #6c757d; font-size: 14px;'>
+                        Stream and Detection Stopped<br>
+                        <span style='font-size: 12px; color: #adb5bd;'>Click the button to resume</span>
+                    </p>
+                </div>
+            """
+            self.video_label.setText(status_text)
+        else:
+            # Update button to show "stop" state
+            self.disable_all_btn.setIcon(QIcon(os.path.join(self._get_icons_dir(), 'stop.png')))
+            self.disable_all_btn.setToolTip("Disable Stream & Detection")
+            
+            # Automatically enable stream display when stream is enabled
+            self.is_display_enabled = True
+            self.display_toggle_btn.setIcon(QIcon(os.path.join(self._get_icons_dir(), 'eye.png')))
+            self.display_toggle_btn.setToolTip("Hide Stream Display")
+            
+            # Reset video label for video display
+            self.video_label.setStyleSheet("""
+                QLabel {
+                    background-color: #000000;
+                    min-width: 320px;
+                    min-height: 240px;
+                }
+            """)
+            self.video_label.clear() 

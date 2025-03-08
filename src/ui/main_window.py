@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QMessageBox, QToolBar, QInputDialog, QMenu, QSizePolicy, QLineEdit, QApplication)
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QMessageBox, QToolBar, QInputDialog, QMenu, QSizePolicy, QLineEdit, QApplication, QDialog)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap, QImage, QIcon
 import os
@@ -12,6 +12,7 @@ from data_sender import DataSender
 import json
 import sys
 from utils.logger import setup_logger
+from .pin_dialog import PinDialog
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -19,16 +20,18 @@ class MainWindow(QMainWindow):
         self.logger = setup_logger('MainWindow')
         self.logger.info("Initializing Main Window")
         
-        # Set window icon
+        # Set window icon using ico file
         if getattr(sys, 'frozen', False):
-            icon_path = os.path.join(sys._MEIPASS, 'icons', 'app_icon.png')
+            icon_path = os.path.join(sys._MEIPASS, 'icons', 'app_icon.ico')
         else:
-            icon_path = os.path.join(Path(__file__).resolve().parent.parent.parent, 'icons', 'app_icon.png')
+            icon_path = os.path.join(Path(__file__).resolve().parent.parent.parent, 'icons', 'app_icon.ico')
         
-        self.setWindowIcon(QIcon(icon_path))
+        app_icon = QIcon(icon_path)
+        self.setWindowIcon(app_icon)
+        QApplication.instance().setWindowIcon(app_icon)
         
         # Update window title
-        self.setWindowTitle("ALPR VISION")
+        self.setWindowTitle("ANPD VISION")
         self.setMinimumSize(1200, 800)
         
         # Load only essential config
@@ -71,7 +74,7 @@ class MainWindow(QMainWindow):
         left_section.setSpacing(15)
         
         # Add product name label
-        product_label = QLabel("ALPR VISION")
+        product_label = QLabel("ANPD VISION")
         product_label.setStyleSheet("""
             QLabel {
                 color: #FFFFFF;
@@ -192,16 +195,11 @@ class MainWindow(QMainWindow):
         """)
         
         # Add search icon
-        if getattr(sys, 'frozen', False):
-            icons_dir = os.path.join(sys._MEIPASS, 'icons')
-        else:
-            icons_dir = os.path.join(Path(__file__).resolve().parent.parent.parent, 'icons')
-            
-        search_icon = QIcon(os.path.join(icons_dir, 'search.png'))
+        search_icon = QIcon(os.path.join(self._get_icons_dir(), 'search.png'))
         search_action = self.search_box.addAction(search_icon, QLineEdit.ActionPosition.LeadingPosition)
         
         # Add clear button
-        clear_icon = QIcon(os.path.join(icons_dir, 'close.png'))
+        clear_icon = QIcon(os.path.join(self._get_icons_dir(), 'close.png'))
         clear_action = self.search_box.addAction(clear_icon, QLineEdit.ActionPosition.TrailingPosition)
         clear_action.triggered.connect(self.search_box.clear)
         self.search_box.textChanged.connect(
@@ -317,7 +315,7 @@ class MainWindow(QMainWindow):
                     # Add to UI
                     stream_widget = self.stream_grid.add_stream(new_stream_id)
                     stream_widget.settingsClicked.connect(self._show_stream_settings)
-                    stream_widget.deleteClicked.connect(self._delete_stream)
+                    stream_widget.disableAllClicked.connect(self._disable_all)
                     
                     # Update stream information display
                     stream_widget.update_stream_info(new_stream)
@@ -342,8 +340,17 @@ class MainWindow(QMainWindow):
     def initialize_detector(self):
         """Initialize the detector - called during splash screen"""
         try:
-            model_path = os.path.join(Path(__file__).resolve().parent.parent.parent, 
-                                    self.config.get('model_path', 'models/NPDv1.0.pt'))
+            if getattr(sys, 'frozen', False):
+                # If running as exe
+                model_path = os.path.join(os.path.dirname(sys.executable), 'models', 'NPDv1.0.pt')
+            else:
+                # If running as script
+                model_path = os.path.join(Path(__file__).resolve().parent.parent.parent, 
+                                        self.config.get('model_path', 'models/NPDv1.0.pt'))
+            
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model file not found: {model_path}")
+            
             self.detector = LicensePlateDetector(model_path)
         except Exception as e:
             self.logger.error(f"Failed to initialize detector: {str(e)}")
@@ -359,12 +366,21 @@ class MainWindow(QMainWindow):
                 
                 # Connect signals
                 stream_widget.settingsClicked.connect(self._show_stream_settings)
-                stream_widget.deleteClicked.connect(self._delete_stream)
+                stream_widget.disableAllClicked.connect(self._disable_all)
                 
-                # Automatically start the stream if enabled and has URL
-                if stream_config.get('enabled', True) and stream_config.get('rtsp_url'):
+                # Update stream widget with config before starting
+                stream_widget.update_stream_info(stream_config)
+                
+                # Only start stream if both enabled flags are true and has URL
+                if (stream_config.get('enabled', True) and 
+                    stream_config.get('detection_region', {}).get('enabled', True) and 
+                    stream_config.get('rtsp_url')):
                     self._start_stream(stream_id, stream_config)
-                
+                else:
+                    # Ensure disabled state is shown
+                    stream_widget.update_disable_all_state(True)
+                    stream_widget.set_status("Stream & Detection Stopped")
+
         except Exception as e:
             self.logger.error(f"Failed to load streams: {str(e)}")
             raise
@@ -400,14 +416,23 @@ class MainWindow(QMainWindow):
             
             # Connect signals
             stream_widget.settingsClicked.connect(self._show_stream_settings)
-            stream_widget.deleteClicked.connect(self._delete_stream)
+            stream_widget.disableAllClicked.connect(self._disable_all)
             
             # If enabled in config, start the stream
             if stream_config.get('enabled') and stream_config.get('rtsp_url'):
                 self._start_stream(stream_id, stream_config)
                 
+    def _verify_pin(self, action="modify"):
+        """Verify PIN before allowing settings modification or application closure"""
+        dialog = PinDialog(action, self)
+        return dialog.exec() == QDialog.DialogCode.Accepted
+
     def _show_stream_settings(self, stream_id):
         """Show settings dialog for stream"""
+        # Verify PIN before showing settings
+        if not self._verify_pin("modify"):
+            return
+        
         try:
             dialog = RTSPStreamDialog(self, stream_id)
             
@@ -475,101 +500,58 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f"Error showing settings dialog: {str(e)}")
 
-    def _delete_stream(self, stream_id):
-        """Handle stream deletion"""
+    def _disable_all(self, stream_id):
+        """Toggle stream and detection state"""
         try:
-            # Show confirmation dialog
-            reply = QMessageBox.question(
-                self,
-                "Confirm Delete",
-                f"Are you sure you want to delete stream {stream_id}?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
+            # Get the stream widget and config
+            stream_widget = self.stream_grid.get_stream(stream_id)
+            stream_config = next((s for s in self.config['streams'] 
+                                if s['id'] == stream_id), None)
             
-            if reply == QMessageBox.StandardButton.Yes:
-                self.logger.info(f"Starting deletion of stream {stream_id}")
-                
-                # First stop the stream if it's running
+            if not stream_config:
+                return
+
+            # Get current state
+            is_currently_enabled = stream_config.get('enabled', True) and \
+                                 stream_config.get('detection_region', {}).get('enabled', True)
+            
+            # Verify PIN before any state change (both stop and start)
+            if not self._verify_pin("modify"):
+                return
+            
+            if is_currently_enabled:
+                # Disable everything
                 if stream_id in self.detection_workers:
-                    try:
-                        worker = self.detection_workers[stream_id]
-                        self.logger.info(f"Stopping worker for stream {stream_id}")
-                        
-                        # Disconnect signals first
-                        try:
-                            worker.frame_ready.disconnect()
-                            worker.error.disconnect()
-                            worker.finished.disconnect()
-                        except Exception:
-                            pass  # Ignore if already disconnected
-                        
-                        # Stop the worker with timeout
-                        worker.stop()
-                        
-                        # Remove from workers dictionary
-                        del self.detection_workers[stream_id]
-                        self.logger.info(f"Worker stopped for stream {stream_id}")
-                        
-                    except Exception as e:
-                        self.logger.error(f"Error stopping worker for stream {stream_id}: {str(e)}")
+                    self._stop_stream(stream_id)
+
+                stream_config['enabled'] = False
+                stream_config['detection_region']['enabled'] = False
+                stream_widget.set_status("Stream & Detection Disabled")
                 
-                # Process events to keep UI responsive
-                QApplication.processEvents()
+                # Update UI to show stopped state
+                stream_widget.update_disable_all_state(True)
+            else:
+                # Enable everything
+                stream_config['enabled'] = True
+                stream_config['detection_region']['enabled'] = True
                 
-                # Remove stream from config
-                self.config['streams'] = [s for s in self.config['streams'] 
-                                        if s['id'] != stream_id]
+                # Start the stream if URL exists
+                if stream_config.get('rtsp_url'):
+                    self._start_stream(stream_id, stream_config)
                 
-                # Save updated config
-                try:
-                    self._save_config()
-                    self.logger.info(f"Config updated after removing stream {stream_id}")
-                except Exception as e:
-                    self.logger.error(f"Error saving config after deleting stream {stream_id}: {str(e)}")
+                stream_widget.set_status("Stream & Detection Enabled")
                 
-                # Remove stream widget from grid
-                try:
-                    self.stream_grid.remove_stream(stream_id)
-                    self.logger.info(f"Stream widget removed for {stream_id}")
-                except Exception as e:
-                    self.logger.error(f"Error removing stream widget {stream_id}: {str(e)}")
-                
-                # Clean up detector resources if any
-                if hasattr(self, 'detector') and self.detector:
-                    try:
-                        if hasattr(self.detector, 'data_senders') and stream_id in self.detector.data_senders:
-                            del self.detector.data_senders[stream_id]
-                            self.logger.info(f"Detector resources cleaned for stream {stream_id}")
-                    except Exception as e:
-                        self.logger.error(f"Error cleaning up detector resources for stream {stream_id}: {str(e)}")
-                
-                # Process events again to ensure UI updates
-                QApplication.processEvents()
-                
-                # Update the UI to reflect changes
-                try:
-                    self.stream_grid._reorganize_grid()
-                    self.logger.info(f"Grid reorganized after removing stream {stream_id}")
-                    
-                    # Update stream count in search label
-                    total_streams = len(self.config['streams'])
-                    if self.search_box.text():
-                        visible_count = len(self.stream_grid.filtered_streams)
-                        self.search_count_label.setText(f"Found {visible_count}/{total_streams}")
-                    else:
-                        self.search_count_label.setText(f"Total {total_streams}")
-                    self.search_count_label.show()
-                    
-                except Exception as e:
-                    self.logger.error(f"Error reorganizing grid after deleting stream {stream_id}: {str(e)}")
-                
-                self.logger.info(f"Successfully completed deletion of stream {stream_id}")
-                
+                # Update UI to show running state
+                stream_widget.update_disable_all_state(False)
+
+            # Update config file
+            self._save_config()
+
         except Exception as e:
-            self.logger.error(f"Error deleting stream {stream_id}: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Failed to delete stream: {str(e)}")
-    
+            self.logger.error(f"Error toggling stream and detection {stream_id}: {str(e)}")
+            # Reset button state on error
+            stream_widget.update_disable_all_state(not is_currently_enabled)
+
     def _start_stream(self, stream_id, stream_config):
         """Start detection worker for stream with improved error handling"""
         if stream_id in self.detection_workers:
@@ -647,6 +629,11 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Clean up resources when closing"""
         try:
+            # Verify PIN before closing
+            if not self._verify_pin("close"):
+                event.ignore()
+                return
+            
             # Show closing message
             QMessageBox.information(self, "Closing", "Application is shutting down, please wait...")
             
@@ -701,7 +688,8 @@ class MainWindow(QMainWindow):
     def _get_config_path(self):
         """Get the path to the config.json file."""
         if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
-            return os.path.join(sys._MEIPASS, 'config.json')
+            #return os.path.join(sys._MEIPASS, 'config.json')
+            return os.path.join(os.path.dirname(sys.executable), 'config.json')
         else:
             return os.path.join(Path(__file__).resolve().parent.parent.parent, 'config.json')
 
@@ -793,4 +781,9 @@ class MainWindow(QMainWindow):
                 
         except Exception as e:
             self.logger.error(f"Error stopping stream {stream_id}: {str(e)}")
+
+    def _get_icons_dir(self):
+        if getattr(sys, 'frozen', False):
+            return os.path.join(sys._MEIPASS, 'icons')
+        return os.path.join(Path(__file__).resolve().parent.parent.parent, 'icons')
 

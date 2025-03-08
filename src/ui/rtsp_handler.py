@@ -34,8 +34,8 @@ class RTSPHandler:
 
     def _get_config_path(self):
         """Get the path to the config.json file."""
-        if getattr(sys, 'frozen', False):  # Check if running as a bundled executable
-            return os.path.join(sys._MEIPASS, 'config.json')
+        if getattr(sys, 'frozen', False):
+            return os.path.join(os.path.dirname(sys.executable), 'config.json')
         else:
             return os.path.join(Path(__file__).resolve().parent.parent.parent, 'config.json')
 

@@ -48,11 +48,20 @@ class StreamGrid(QWidget):
         
     def change_layout(self, layout_type):
         self.current_layout = layout_type
+        
+        # Update style for all stream widgets
+        for stream_widget in self.streams.values():
+            stream_widget.update_layout_style(layout_type)
+        
         if self.maximized_stream:
             self._handle_maximize(self.maximized_stream)
         self._reorganize_grid()
         
     def _reorganize_grid(self, filter_active=False):
+        # Don't reorganize if a stream is maximized
+        if self.maximized_stream:
+            return
+        
         try:
             streams_to_show = self.filtered_streams if filter_active else self.streams.values()
             
@@ -79,18 +88,19 @@ class StreamGrid(QWidget):
             rows, cols = map(int, self.current_layout.split('x'))
             
             # Calculate sizes with proper spacing
-            grid_spacing = 16
+            grid_spacing = 12 if self.current_layout == "2x3" else 16  # Smaller spacing for 2x3
             scrollbar_width = 20
             self.layout.setSpacing(grid_spacing)
             self.layout.setContentsMargins(grid_spacing, grid_spacing, grid_spacing, grid_spacing)
             
             # Calculate stream sizes accounting for scrollbar and spacing
             available_width = self.scroll_area.width() - (cols + 1) * grid_spacing - scrollbar_width
-            stream_width = max(320, available_width // cols)
+            stream_width = max(280 if self.current_layout == "2x3" else 320, available_width // cols)
             
             # Calculate height to maintain 4:3 aspect ratio for video plus space for header and status
             video_height = int(stream_width * 0.75)  # 4:3 aspect ratio
-            total_height = video_height + 80  # Add space for header and status
+            header_height = 60 if self.current_layout == "2x3" else 80  # Smaller header for 2x3
+            total_height = video_height + header_height
             
             # Set grid widget width to match scroll area
             self.grid_widget.setFixedWidth(self.scroll_area.width() - scrollbar_width)
@@ -134,17 +144,63 @@ class StreamGrid(QWidget):
                 if widget != stream_widget:
                     widget.hide()
             
-            # Show maximized stream
-            stream_widget.setFixedSize(self.width(), self.width() * 3 // 4)
-            self.layout.addWidget(stream_widget, 0, 0)
+            # Show maximized stream with proper sizing
+            available_width = self.scroll_area.width() - 20  # Account for scrollbar
+            available_height = int(available_width * 0.75)  # Maintain 4:3 aspect ratio
+            header_height = 80  # Height for header section
             
+            # Ensure minimum size
+            min_width = 320  # Minimum width
+            actual_width = max(min_width, available_width - 32)
+            actual_height = int(actual_width * 0.75) + header_height
+            
+            # Set size to fill available width
+            stream_widget.setFixedSize(actual_width, actual_height)
+            
+            # Enable vertical scrolling if content is larger than view
+            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            
+            # Update grid widget size and minimum size
+            self.grid_widget.setFixedWidth(self.scroll_area.width() - 20)
+            self.grid_widget.setMinimumHeight(actual_height + 32)  # Add padding
+            
+            # Add to layout with proper alignment
+            self.layout.setContentsMargins(16, 16, 16, 16)
+            self.layout.addWidget(stream_widget, 0, 0, Qt.AlignmentFlag.AlignTop)
+            stream_widget.show()
+
     def get_stream(self, stream_id):
         return self.streams.get(stream_id)
         
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Reorganize grid when scroll area is resized
-        self._reorganize_grid()
+        if self.maximized_stream:
+            # Update maximized stream size while maintaining maximized state
+            available_width = self.scroll_area.width() - 20  # Account for scrollbar
+            available_height = int(available_width * 0.75)  # Maintain 4:3 aspect ratio
+            header_height = 80  # Height for header section
+            
+            # Ensure minimum size
+            min_width = 320  # Minimum width
+            actual_width = max(min_width, available_width - 32)
+            actual_height = int(actual_width * 0.75) + header_height
+            
+            # Update size of maximized stream
+            self.maximized_stream.setFixedSize(actual_width, actual_height)
+            
+            # Enable vertical scrolling if content is larger than view
+            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            
+            # Update grid widget size and minimum size
+            self.grid_widget.setFixedWidth(self.scroll_area.width() - 20)
+            self.grid_widget.setMinimumHeight(actual_height + 32)  # Add padding
+            
+            # Ensure proper layout
+            self.layout.setContentsMargins(16, 16, 16, 16)
+            self.layout.addWidget(self.maximized_stream, 0, 0, Qt.AlignmentFlag.AlignTop)
+        else:
+            # Only reorganize grid if not maximized
+            self._reorganize_grid()
 
     def remove_stream(self, stream_id):
         """Remove a stream widget from the grid"""

@@ -25,9 +25,12 @@ from PyQt6.QtGui import QIcon
 
 # Only import what's needed immediately
 def _get_config_path():
+    """Get the path to the config.json file."""
     if getattr(sys, 'frozen', False):
-        return os.path.join(sys._MEIPASS, 'config.json')
+        # Always use config from exe directory
+        return os.path.join(os.path.dirname(sys.executable), 'config.json')
     else:
+        # Development mode
         return os.path.join(Path(__file__).resolve().parent.parent, 'config.json')
 
 def show_expiration_message():
@@ -100,17 +103,18 @@ def initialize_app(splash):
         app.processEvents()
         raise e
 
+def get_icon_path():
+    if getattr(sys, 'frozen', False):
+        return os.path.join(sys._MEIPASS, 'icons', 'app_icon.ico')
+    return os.path.join(Path(__file__).resolve().parent.parent, 'icons', 'app_icon.ico')
+
 def main():
     app = QApplication(sys.argv)
     
-    # Set application icon
-    if getattr(sys, 'frozen', False):
-        icon_path = os.path.join(sys._MEIPASS, 'icons', 'app_icon.png')
-    else:
-        icon_path = os.path.join(Path(__file__).resolve().parent.parent, 'icons', 'app_icon.png')
-    
-    app_icon = QIcon(icon_path)
+    # Set application icon using ico file
+    app_icon = QIcon(get_icon_path())
     app.setWindowIcon(app_icon)
+    QApplication.setWindowIcon(app_icon)
     
     try:
         # Check expiration before showing splash
