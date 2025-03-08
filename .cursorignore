@@ -4,3 +4,5 @@ readme.txt
 needs.txt
 .gitignore
 logger.py
+
+/logger.py
