@@ -26,13 +26,13 @@ AUTOMATIC NUMBER0-PLATE DETECTION
 
 -----------------------------> RTSP URL <----------------------------- 
 
-1. URL -->  rtsp://nhai:NhaiBdr$123@122.187.87.67:554/unicast/c2/s0/live
+1. URL -->  rtsp://<username>:<password>@<ipaddress>:<port>/unicast/c2/s0/live
      - c2             --> camera name/id
      - s0             --> max quality (to minimize decrease the number after s. ex.s1,s2)
-     - nhai           --> id 
-     - NhaiBdr$123    --> pass
-     - 122.187.87.67  --> ip address
-     - 554            --> port only for rtsp protocol
+     - username       --> id 
+     - password       --> pass
+     - ipaddress      --> ip address
+     - port           --> port only for rtsp protocol
      - unicast        --> protocol
 
 
