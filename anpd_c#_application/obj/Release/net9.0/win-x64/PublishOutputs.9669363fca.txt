@@ -1,0 +1,3 @@
+C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\bin\Release\net9.0\win-x64\publish\ANPD {Reciever) application.pdb
+C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\bin\Release\net9.0\win-x64\publish\config.json
+C:\Users\suraj\OneDrive\Desktop\ALL DEVELPMENT\ASHOKA PROJECT\ANPD (Reciever) C# application\bin\Release\net9.0\win-x64\publish\ANPD {Reciever) application.exe
