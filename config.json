@@ -5,9 +5,9 @@
         {
             "id": "stream1",
             "rtsp_url": "rtsp://nhai:NhaiBdr$123@122.187.87.67:554/unicast/c2/s0/live",
-            "enabled": false,
+            "enabled": true,
             "detection_region": {
-                "enabled": false,
+                "enabled": true,
                 "x1": 0.4,
                 "y1": 0.3,
                 "x2": 0.7,
@@ -21,9 +21,9 @@
         {
             "id": "stream2",
             "rtsp_url": "rtsp://nhai:Nhai@123@182.66.66.125:554/cam/realmonitor?channel=12&subtype=0",
-            "enabled": false,
+            "enabled": true,
             "detection_region": {
-                "enabled": false,
+                "enabled": true,
                 "x1": 0.4,
                 "y1": 0.3,
                 "x2": 0.7,
