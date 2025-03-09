@@ -1,0 +1,93 @@
+<div class="container">
+  <h2>Train Model</h2>
+
+  <!-- File Upload Section -->
+  <div class="upload-section">
+    <div class="upload-box">
+      <h3>Upload Images</h3>
+      <input type="file" 
+             multiple 
+             accept="image/*"
+             (change)="onImagesSelected($event)"
+             [disabled]="isTraining">
+      <p>Selected: {{selectedImages.length}} images</p>
+    </div>
+
+    <div class="upload-box">
+      <h3>Upload Labels</h3>
+      <input type="file" 
+             multiple 
+             accept=".txt"
+             (change)="onLabelsSelected($event)"
+             [disabled]="isTraining">
+      <p>Selected: {{selectedLabels.length}} labels</p>
+    </div>
+  </div>
+
+  <!-- Training Configuration -->
+  <div class="config-section">
+    <h3>Training Configuration</h3>
+    <div class="config-grid">
+      <div class="config-item">
+        <label>Project Name:</label>
+        <input type="text" 
+               [(ngModel)]="trainingConfig.projectName"
+               [disabled]="isTraining">
+      </div>
+
+      <!-- Common Parameters -->
+      <div class="config-item">
+        <label>Epochs:</label>
+        <input type="number" 
+               [(ngModel)]="trainingConfig.epochs"
+               [disabled]="isTraining">
+      </div>
+
+      <div class="config-item">
+        <label>Batch Size:</label>
+        <input type="number" 
+               [(ngModel)]="trainingConfig.batchSize"
+               [disabled]="isTraining">
+      </div>
+
+      <!-- OCR Specific Parameters -->
+      <ng-container *ngIf="isOCRModel()">
+        <div class="config-item">
+          <label>Learning Rate:</label>
+          <input type="number" 
+                 [(ngModel)]="trainingConfig.learningRate"
+                 [disabled]="isTraining">
+        </div>
+
+        <div class="config-item">
+          <label>Optimizer:</label>
+          <select [(ngModel)]="trainingConfig.optimizer" [disabled]="isTraining">
+            <option value="adam">Adam</option>
+            <option value="sgd">SGD</option>
+            <option value="rmsprop">RMSprop</option>
+          </select>
+        </div>
+      </ng-container>
+
+      <!-- YOLO Specific Parameters -->
+      <div class="config-item" *ngIf="!isOCRModel()">
+        <label>Image Size:</label>
+        <input type="number" 
+               [(ngModel)]="trainingConfig.imgSize"
+               [disabled]="isTraining">
+      </div>
+    </div>
+  </div>
+
+  <!-- Training Controls -->
+  <div class="controls-section">
+    <button (click)="startTraining()" 
+            [disabled]="isTraining || !selectedImages.length || !selectedLabels.length">
+      {{ isTraining ? 'Training...' : 'Start Training' }}
+    </button>
+    
+    <div class="status" *ngIf="trainingStatus">
+      {{ trainingStatus }}
+    </div>
+  </div>
+</div> 

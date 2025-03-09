@@ -1,0 +1,33 @@
+/* You can add global styles to this file, and also import other style files */
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+  
+  body, .admin-container {
+    background-color: #f9fafab9 !important;
+  }
+  
+  
+  .cdk-global-scrollblock {
+    overflow: hidden;
+  }
+  
+  * {
+    box-sizing: border-box;
+    overflow:none;
+  }
+
+
+  .h1, h2, h3, h4, h5, h6 {
+    display: flex;
+  }
+
+  body, h1, h2, h3, h4, h5, h6, p, button, label, span ,input{
+    padding: 0;
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 400;
+  }

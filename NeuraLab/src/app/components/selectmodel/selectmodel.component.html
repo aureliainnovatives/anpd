@@ -1,0 +1,66 @@
+<div class="app-container"> 
+  <div class="modellabel">
+    <h1 class="selection-title">AI Model Selection</h1>
+    <p class="selection-description">Select an AI model for training</p>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <p>Loading available models...</p>
+  </div>
+
+  <div *ngIf="error" class="error">
+    {{ error }}
+  </div>
+
+  <!-- Group cards by category -->
+  <div *ngFor="let category of modelsByCategory | keyvalue" class="category-section">
+    <h2 class="category-title">{{ category.key }}</h2>
+    
+    <div class="card-container">
+      <div
+        class="card"
+        *ngFor="let card of category.value"
+        (click)="toggleCardSelection(card)"
+        [class.selected]="card.selected"
+        [class.disabled]="card.id !== 'yolo' && card.id !== 'easyocr'"
+      >
+        <!-- Top Image Wrapper -->
+        <div class="card-image-wrapper">
+          <img class="card-image" [src]="card.imageUrl" [alt]="card.title" 
+               onerror="this.src='assets/model-images/default-model.png'"/>
+        </div>
+    
+        <!-- Main Content -->
+        <div class="card-content">
+          <!-- Title -->
+          <h2 class="card-title">{{ card.title }}</h2>
+    
+          <!-- Subtitle -->
+          <p class="card-subtitle">{{ card.description }}</p>
+    
+          <!-- Details List -->
+          <ul class="card-details">
+            <li *ngFor="let detail of card.details">
+              <span class="detail-text">{{ detail }}</span>
+            </li>
+          </ul>
+
+          <!-- Availability Badge -->
+          <div class="availability-badge" *ngIf="card.id !== 'yolo' && card.id !== 'easyocr'">
+            Coming Soon
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-container">
+    <button 
+      class="continue-button" 
+      [disabled]="!isYoloSelected"
+      (click)="continueToDataUpload()">
+      Continue to Data Upload
+    </button>
+  </div>
+</div>
+  
