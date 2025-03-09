@@ -1,0 +1,13 @@
+venv/
+/EasyOCR-1.7.2
+EasyOCR-1.7.2
+EasyOCR-1.7.2/
+.vscode/
+.idea/
+.pytest_cache/
+.mypy_cache/
+detected_plates
+build/
+dist/
+logs/
+__pycache__
