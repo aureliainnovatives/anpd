@@ -1,0 +1,84 @@
+<div class="license-generator-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Generate License</mat-card-title>
+      <mat-card-subtitle *ngIf="system">
+        for System: {{ system.uniqueId }}
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div *ngIf="isLoading" class="loading-spinner">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+
+      <!-- Generated License Key Section -->
+      <div *ngIf="generatedLicense" class="license-key-section">
+        <h3>Generated License Key</h3>
+        <div class="license-key-container">
+          <mat-form-field appearance="outline" class="license-key-field">
+            <input matInput [value]="generatedLicense.licenseKey" readonly />
+          </mat-form-field>
+          <button
+            mat-icon-button
+            color="primary"
+            (click)="copyLicenseKey()"
+            matTooltip="Copy License Key"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+        <div class="license-info">
+          <p><strong>Duration:</strong> {{ generatedLicense.duration }} days</p>
+          <p><strong>Expires On:</strong> {{ generatedLicense.expiryDate | date:'medium' }}</p>
+        </div>
+        <div class="action-buttons">
+          <button mat-flat-button color="primary" (click)="generateNew()">
+            Generate Another
+          </button>
+          <button mat-button (click)="goBack()">
+            Back to Systems
+          </button>
+        </div>
+      </div>
+
+      <!-- License Generation Form -->
+      <form *ngIf="!isLoading && !generatedLicense" [formGroup]="licenseForm" (ngSubmit)="generateLicense()">
+        <mat-form-field appearance="outline">
+          <mat-label>Duration (days)</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="duration"
+            min="1"
+            required
+          />
+          <mat-error *ngIf="licenseForm.get('duration')?.hasError('required')">
+            Duration is required
+          </mat-error>
+          <mat-error *ngIf="licenseForm.get('duration')?.hasError('min')">
+            Duration must be at least 1 day
+          </mat-error>
+        </mat-form-field>
+
+        <div class="form-actions">
+          <button
+            mat-button
+            type="button"
+            (click)="cancel()"
+          >
+            Cancel
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="licenseForm.invalid || isGenerating"
+          >
+            <mat-icon>vpn_key</mat-icon>
+            {{ isGenerating ? 'Generating...' : 'Generate License' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div> 

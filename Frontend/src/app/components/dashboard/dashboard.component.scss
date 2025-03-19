@@ -1,0 +1,15 @@
+.dashboard-container {
+  padding: 20px;
+}
+
+.dashboard-stats {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px 0;
+}
+
+.stat-card {
+  flex: 1;
+  margin: 0 10px;
+  text-align: center;
+} 
