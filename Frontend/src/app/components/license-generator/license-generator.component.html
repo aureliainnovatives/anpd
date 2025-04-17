@@ -28,7 +28,7 @@
           </button>
         </div>
         <div class="license-info">
-          <p><strong>Duration:</strong> {{ generatedLicense.duration }} days</p>
+          <p><strong>Duration:</strong> {{ generatedLicense.duration }} minutes</p>
           <p><strong>Expires On:</strong> {{ generatedLicense.expiryDate | date:'medium' }}</p>
         </div>
         <div class="action-buttons">
@@ -44,7 +44,7 @@
       <!-- License Generation Form -->
       <form *ngIf="!isLoading && !generatedLicense" [formGroup]="licenseForm" (ngSubmit)="generateLicense()">
         <mat-form-field appearance="outline">
-          <mat-label>Duration (days)</mat-label>
+          <mat-label>Duration (minutes)</mat-label>
           <input
             matInput
             type="number"
@@ -56,7 +56,7 @@
             Duration is required
           </mat-error>
           <mat-error *ngIf="licenseForm.get('duration')?.hasError('min')">
-            Duration must be at least 1 day
+            Duration must be at least 1 minute
           </mat-error>
         </mat-form-field>
 

@@ -6,6 +6,9 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
+import { LicenseService } from '../../services/license.service';
+import { MatDialog } from '@angular/material/dialog';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 interface License {
   _id: string;
@@ -38,6 +41,8 @@ export class SystemListComponent implements OnInit {
   
   dataSource!: MatTableDataSource<System>;
   loading = true;
+  renewingLicenseId: string | null = null;
+  terminatingLicenseId: string | null = null;
   
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
@@ -45,8 +50,10 @@ export class SystemListComponent implements OnInit {
   constructor(
     private router: Router,
     private systemService: SystemService,
+    private licenseService: LicenseService,
     private snackBar: MatSnackBar,
-    private clipboard: Clipboard
+    private clipboard: Clipboard,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -83,5 +90,82 @@ export class SystemListComponent implements OnInit {
         verticalPosition: 'bottom'
       });
     }
+  }
+
+  renewLicense(system: System): void {
+    const licenseKey = system.license?.licenseKey;
+    if (!licenseKey) {
+      this.snackBar.open('No license key found for this system', 'Close', {
+        duration: 3000
+      });
+      return;
+    }
+
+    if (system.license?.status === 'terminated') {
+      this.snackBar.open('Cannot renew a terminated license', 'Close', {
+        duration: 3000
+      });
+      return;
+    }
+
+    this.renewingLicenseId = system._id;
+    this.licenseService.renewLicense(licenseKey).subscribe({
+      next: (response) => {
+        this.snackBar.open('License renewed successfully', 'Close', {
+          duration: 3000
+        });
+        this.loadSystems(); // Reload the systems list
+      },
+      error: (error) => {
+        console.error('Error renewing license:', error);
+        const errorMessage = error.error?.message || 'Error renewing license';
+        this.snackBar.open(errorMessage, 'Close', {
+          duration: 3000
+        });
+      },
+      complete: () => {
+        this.renewingLicenseId = null;
+      }
+    });
+  }
+
+  terminateLicense(system: System): void {
+    const licenseKey = system.license?.licenseKey;
+    if (!licenseKey) {
+      this.snackBar.open('No license key found for this system', 'Close', {
+        duration: 3000
+      });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Terminate License',
+        message: 'Are you sure you want to terminate this license? This action cannot be undone.'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.terminatingLicenseId = system._id;
+        this.licenseService.terminateLicense(licenseKey).subscribe({
+          next: (response) => {
+            this.snackBar.open('License terminated successfully', 'Close', {
+              duration: 3000
+            });
+            this.loadSystems(); // Reload the systems list
+          },
+          error: (error) => {
+            console.error('Error terminating license:', error);
+            this.snackBar.open('Error terminating license', 'Close', {
+              duration: 3000
+            });
+          },
+          complete: () => {
+            this.terminatingLicenseId = null;
+          }
+        });
+      }
+    });
   }
 } 

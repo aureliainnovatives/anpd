@@ -25,7 +25,7 @@ const licenseSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'expired', 'revoked'],
+    enum: ['active', 'expired', 'revoked', 'terminated'],
     default: 'active'
   }
 });

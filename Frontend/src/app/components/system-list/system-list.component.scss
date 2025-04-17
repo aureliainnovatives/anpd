@@ -105,6 +105,22 @@ table {
     background-color: #ffebee;
     color: #c62828;
   }
+
+  &.terminated {
+    background-color: #fafafa;
+    color: #616161;
+    border: 1px solid #e0e0e0;
+  }
+
+  &.active {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &.revoked {
+    background-color: #ffebee;
+    color: #c62828;
+  }
 }
 
 .system-id {
@@ -113,24 +129,9 @@ table {
 }
 
 .mat-column-actions {
-  width: 200px;
+  width: 280px;
   text-align: right;
   padding-right: 16px;
-
-  .action-button {
-    margin-right: 8px;
-
-    mat-icon {
-      margin-right: 4px;
-      font-size: 18px;
-    }
-  }
-
-  .copy-button {
-    mat-icon {
-      font-size: 20px;
-    }
-  }
 }
 
 .mat-column-licenseKey {
@@ -155,5 +156,59 @@ tr.mat-mdc-row {
     text-align: center;
     padding: 16px;
     color: rgba(0, 0, 0, 0.54);
+  }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.action-button {
+  min-width: 110px !important;
+  height: 36px;
+  padding: 0 12px !important;
+  border-radius: 4px;
+
+  &.mat-flat-button {
+    &[color="primary"] {
+      background-color: #3f51b5;
+      &:hover {
+        background-color: #3949ab;
+      }
+    }
+    &[color="warn"] {
+      background-color: #f44336;
+      &:hover {
+        background-color: #e53935;
+      }
+    }
+  }
+}
+
+.button-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+
+  mat-icon {
+    font-size: 18px;
+    height: 18px;
+    width: 18px;
+    line-height: 18px;
+  }
+
+  span {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  mat-spinner {
+    margin: 0;
   }
 } 

@@ -11,7 +11,7 @@ export interface License {
   duration: number;
   startDate: Date;
   expiryDate: Date;
-  status: 'active' | 'expired' | 'revoked';
+  status: 'active' | 'expired' | 'revoked' | 'terminated';
 }
 
 export interface ActivationStatus {
@@ -47,5 +47,13 @@ export class LicenseService {
 
   getAllLicenses(): Observable<License[]> {
     return this.http.get<License[]>(`${API_URL}/licenses`);
+  }
+
+  renewLicense(licenseKey: string): Observable<any> {
+    return this.http.post<any>(`${API_URL}/licenses/renew`, { licenseKey });
+  }
+
+  terminateLicense(licenseKey: string): Observable<any> {
+    return this.http.post<any>(`${API_URL}/licenses/terminate`, { licenseKey });
   }
 } 
