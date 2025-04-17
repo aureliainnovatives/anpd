@@ -765,9 +765,14 @@ class LicenseManager:
             from PyQt6.QtWidgets import QApplication
             from PyQt6.QtCore import QCoreApplication
             
-            # Close the Qt application
+            # Set license termination flag in MainWindow
             app = QApplication.instance()
             if app:
+                # Find the MainWindow instance
+                for widget in app.topLevelWidgets():
+                    if widget.__class__.__name__ == 'MainWindow':
+                        widget.license_termination = True
+                        break
                 app.quit()
             else:
                 # Fallback to sys.exit if Qt app is not found

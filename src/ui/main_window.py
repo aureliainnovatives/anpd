@@ -65,6 +65,8 @@ class MainWindow(QMainWindow):
         
         # Initial checks
         self._check_license_status()
+        
+        self.license_termination = False  # Add flag to track license termination
 
     def _create_toolbar(self):
         """Create main toolbar"""
@@ -685,10 +687,12 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Clean up resources when closing"""
         try:
-            # Verify PIN before closing
-            if not self._verify_pin("close"):
-                event.ignore()
-                return
+            # Skip PIN verification if closing due to license termination
+            if not self.license_termination:
+                # Verify PIN before closing
+                if not self._verify_pin("close"):
+                    event.ignore()
+                    return
             
             # Show closing message
             QMessageBox.information(self, "Closing", "Application is shutting down, please wait...")
