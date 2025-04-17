@@ -45,7 +45,7 @@ def show_expiration_message():
     msg.exec()
 
 def check_expiration(use_gui=False):
-    expiration_date = datetime(2025, 3, 19, 23, 59)
+    expiration_date = datetime(2025, 4, 19, 23, 59)
     if datetime.now() > expiration_date:
         if use_gui:
             show_expiration_message()
@@ -116,22 +116,20 @@ def main():
         # Initialize license manager
         license_manager = LicenseManager()
         
-        # First register the device
-        if not license_manager.register_device():
-            messagebox.showerror("Error", "Failed to register device with license server")
-            sys.exit(1)
-            
-        # Verify license
+        # First check if we have a valid license
         is_valid, message = license_manager.verify_license()
-        
-        if not is_valid:
+        if is_valid:
+            print("License verified successfully:", message)
+        else:
+            # Only try to register device if no valid license
+            if not license_manager.register_device():
+                messagebox.showerror("Error", "Failed to register device with license server")
+                sys.exit(1)
+            
             # Show license window if invalid
             if not license_manager.check_license():
                 messagebox.showerror("Error", "License validation failed")
                 sys.exit(1)
-        
-        # If we get here, license is valid
-        print("License verified successfully:", message)
         
         app = QApplication(sys.argv)
         

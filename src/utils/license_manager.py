@@ -18,8 +18,24 @@ class LicenseManager:
         self.license_file = "license.dat"
         self.system_id = self._generate_system_id()
         self._init_encryption()
-        # Register device on initialization
-        self.register_device()
+        
+        # Only try to register device if no valid license exists
+        if not os.path.exists(self.license_file):
+            self.register_device()
+        else:
+            try:
+                # Check if we have a valid local license
+                with open(self.license_file, 'rb') as f:
+                    encrypted_data = f.read()
+                license_data = self._decrypt_data(encrypted_data)
+                if license_data and license_data.get('uniqueId') == self.system_id:
+                    # Valid license exists, no need to contact server
+                    return
+                # If license is invalid or for different system, try to register
+                self.register_device()
+            except:
+                # If any error reading license, try to register
+                self.register_device()
 
     def _init_encryption(self):
         """Initialize encryption key based on hardware information"""
@@ -95,6 +111,18 @@ class LicenseManager:
 
     def register_device(self):
         """Register device with the server"""
+        # First check if we have a valid local license
+        if os.path.exists(self.license_file):
+            try:
+                with open(self.license_file, 'rb') as f:
+                    encrypted_data = f.read()
+                license_data = self._decrypt_data(encrypted_data)
+                if license_data and license_data.get('uniqueId') == self.system_id:
+                    # Valid license exists, no need to register
+                    return True
+            except:
+                pass  # Continue with registration if license check fails
+        
         try:
             # Check if device already exists
             if self.check_device_exists():
@@ -133,14 +161,14 @@ class LicenseManager:
                 print(f"Response: {response.text}")
                 return False
         except requests.exceptions.Timeout:
-            print("Connection to server timed out. Please check if the server is running.")
-            return False
+            print("Connection to server timed out")
+            return True if os.path.exists(self.license_file) else False
         except requests.exceptions.ConnectionError:
-            print("Could not connect to server. Please check if the server is running.")
-            return False
+            print("Could not connect to server")
+            return True if os.path.exists(self.license_file) else False
         except Exception as e:
             print(f"Error registering device: {e}")
-            return False
+            return True if os.path.exists(self.license_file) else False
 
     def _get_windows_uuid(self):
         """Get Windows UUID using wmic"""
@@ -187,15 +215,35 @@ class LicenseManager:
         is_valid, message = self.verify_license()
         
         if not is_valid:
-            # Show license window without warning
-            if self.show_license_window():
-                # Recheck license after activation
-                is_valid, message = self.verify_license()
-                if not is_valid:
-                    messagebox.showerror("Error", "License validation failed after activation")
+            # Show expiration message first
+            if "expired" in message.lower():
+                result = messagebox.showwarning(
+                    "License Expired",
+                    "Your license has expired. Please contact the administrator to activate the application.",
+                    messagebox.Ok | messagebox.Cancel
+                )
+                if result == messagebox.Ok:
+                    # Show license window after user clicks OK
+                    if self.show_license_window():
+                        # Recheck license after activation
+                        is_valid, message = self.verify_license()
+                        if not is_valid:
+                            messagebox.showerror("Error", "License validation failed after activation")
+                            return False
+                        return True
                     return False
-                return True
-            return False
+                else:
+                    return False
+            else:
+                # For other invalid cases, show license window directly
+                if self.show_license_window():
+                    # Recheck license after activation
+                    is_valid, message = self.verify_license()
+                    if not is_valid:
+                        messagebox.showerror("Error", "License validation failed after activation")
+                        return False
+                    return True
+                return False
         
         if "expires in" in message:
             messagebox.showinfo("License Status", message)
@@ -204,13 +252,20 @@ class LicenseManager:
 
     def show_license_window(self):
         root = tk.Tk()
+        
+        # Calculate center position before showing window
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        window_width = 400
+        window_height = 180
+        x = (screen_width // 2) - (window_width // 2)
+        y = (screen_height // 2) - (window_height // 2)
+        
+        # Set window properties
         root.title("Product Activation")
-        root.geometry("400x180")
-
-        # Remove window decorations and center window
-        root.overrideredirect(True)
-        root.configure(bg='#F9F9F9')
-        root.eval('tk::PlaceWindow . center')
+        root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        # root.attributes('-topmost', True)
+        root.resizable(False, False)  # Make window non-resizable
 
         # Main frame with rounded corners and shadow
         main_frame = tk.Frame(
@@ -221,7 +276,7 @@ class LicenseManager:
             highlightbackground='#E0E0E0',
             highlightthickness=1
         )
-        main_frame.place(x=0, y=0, relwidth=1, relheight=1)
+        main_frame.pack(fill='both', expand=True, padx=1, pady=1)
 
         # Header section with icon and title
         header_frame = tk.Frame(main_frame, bg='white')
@@ -244,17 +299,6 @@ class LicenseManager:
             fg='#333333'
         )
         title_label.pack(side='left')
-
-        close_button = tk.Label(
-            header_frame,
-            text="✕",
-            font=('Segoe UI', 14),
-            bg='white',
-            fg='#999999',
-            cursor='hand2'
-        )
-        close_button.pack(side='right', padx=(0, 20))
-        close_button.bind('<Button-1>', lambda e: root.quit())
 
         # Instruction text
         instruction_label = tk.Label(
@@ -336,29 +380,22 @@ class LicenseManager:
         activate_button.bind('<Enter>', on_enter)
         activate_button.bind('<Leave>', on_leave)
 
-        # Drag window functionality
-        def start_move(event):
-            root.x = event.x
-            root.y = event.y
+        # Handle window close button
+        def on_closing():
+            root.quit()
 
-        def stop_move(event):
-            root.x = None
-            root.y = None
-
-        def do_move(event):
-            x = event.x - root.x
-            y = event.y - root.y
-            root.geometry(f"+{root.winfo_x() + x}+{root.winfo_y() + y}")
-
-        header_frame.bind('<Button-1>', start_move)
-        header_frame.bind('<ButtonRelease-1>', stop_move)
-        header_frame.bind('<B1-Motion>', do_move)
-
+        root.protocol("WM_DELETE_WINDOW", on_closing)
         root.bind('<Return>', lambda e: activate_license())
+
+        # Focus the entry widget after window is shown
+        root.after(100, lambda: license_entry.focus())
 
         root.mainloop()
 
-        root.destroy()
+        try:
+            root.destroy()
+        except:
+            pass  # Ignore destroy errors
 
         return activation_successful
 
@@ -393,47 +430,114 @@ class LicenseManager:
             
             if response.status_code == 200:
                 data = response.json()
+                print("Server Response:", data)  # Debug print
+                
                 if data.get('valid'):
                     try:
-                        # Parse expiry date and convert to simple date string
-                        expiry_str = data.get('expiryDate', '')
-                        if 'T' in expiry_str:
-                            expiry_date = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
-                            expiry_date_str = expiry_date.strftime('%Y-%m-%d')
+                        # Get duration from remainingMinutes in response
+                        duration = None
+                        if 'remainingMinutes' in data:
+                            duration = int(data['remainingMinutes'])
+                        elif 'licenseData' in data and 'remainingMinutes' in data['licenseData']:
+                            duration = int(data['licenseData']['remainingMinutes'])
+                        
+                        print(f"Extracted duration: {duration}")  # Debug print
+                            
+                        if duration is None:
+                            messagebox.showerror("Error", "Invalid license: Duration not specified in server response")
+                            print("Server response data:", data)  # Debug print full response
+                            return False
+                            
+                        # Validate minimum duration
+                        if duration < 5:
+                            messagebox.showerror("Error", "Invalid license duration. Minimum duration is 5 minutes.")
+                            return False
+                            
+                        # Get timestamp from expiryDate, or current time if not provided
+                        timestamp = None
+                        if 'expiryDate' in data:
+                            try:
+                                expiry_date = datetime.fromisoformat(data['expiryDate'].replace('Z', '+00:00'))
+                                # Calculate timestamp as expiry_date minus duration
+                                activation_date = expiry_date - timedelta(minutes=duration)
+                                timestamp = int(activation_date.timestamp() * 1000)
+                            except (ValueError, AttributeError) as e:
+                                print(f"Error parsing expiryDate: {e}")
+                                timestamp = int(datetime.now().timestamp() * 1000)
                         else:
-                            expiry_date_str = expiry_str
+                            timestamp = int(datetime.now().timestamp() * 1000)
                         
                         # Prepare license data
                         license_data = {
                             'license_key': license_key,
                             'uniqueId': self.system_id,
-                            'activation_date': datetime.now().strftime('%Y-%m-%d'),
-                            'expiry_date': expiry_date_str,
+                            'duration': duration,
+                            'timestamp': timestamp,
                             'hardware_hash': self._get_hardware_hash()
                         }
+                        
+                        print("License data to be saved:", license_data)  # Debug print
                         
                         # Encrypt and save license information
                         encrypted_data = self._encrypt_data(license_data)
                         if encrypted_data:
                             with open(self.license_file, 'wb') as f:
                                 f.write(encrypted_data)
-                            messagebox.showinfo("Success", "License activated successfully!")
+                            messagebox.showinfo("Success", f"License activated successfully! Duration: {duration} minutes")
                             return True
                         else:
                             messagebox.showerror("Error", "Failed to secure license data")
                             return False
                     except ValueError as e:
-                        messagebox.showerror("Error", f"Invalid expiry date format: {str(e)}")
+                        messagebox.showerror("Error", f"Invalid license data: {str(e)}")
+                        print(f"ValueError during license activation: {e}")  # Debug print
                         return False
                 else:
                     error_msg = data.get('message', 'Invalid license key or system ID')
                     messagebox.showerror("Error", error_msg)
             else:
                 messagebox.showerror("Error", f"Server error: {response.text}")
+                print(f"Server error response: {response.text}")  # Debug print
             return False
         except Exception as e:
             messagebox.showerror("Error", f"Error activating license: {str(e)}")
+            print(f"Exception during license activation: {str(e)}")  # Debug print
             return False
+
+    def _print_license_details(self, license_data):
+        """Print license details to terminal"""
+        try:
+            print("\n=== License Details ===")
+            print(f"License Key: {license_data.get('license_key', 'N/A')}")
+            print(f"System ID: {license_data.get('uniqueId', 'N/A')}")
+            
+            # Get duration from license data
+            duration_minutes = license_data.get('duration', 0)
+            print(f"License Duration: {duration_minutes} minutes")
+            
+            # Calculate activation and expiry dates based on duration
+            if 'timestamp' in license_data:
+                activation_timestamp = license_data.get('timestamp', 0) / 1000  # Convert from milliseconds to seconds
+                activation_date = datetime.fromtimestamp(activation_timestamp)
+                expiry_date = activation_date + timedelta(minutes=duration_minutes)
+                
+                print(f"Activation Date: {activation_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Expiry Date: {expiry_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Calculate remaining time
+                current_time = datetime.now()
+                minutes_left = int((expiry_date - current_time).total_seconds() / 60)
+                hours_left = minutes_left // 60
+                mins_left = minutes_left % 60
+                print(f"Time Remaining: {hours_left} hours and {mins_left} minutes")
+            else:
+                print("Activation Date: N/A")
+                print("Expiry Date: N/A")
+                print("Time Remaining: N/A")
+            
+            print("=====================\n")
+        except Exception as e:
+            print(f"Error printing license details: {str(e)}")
 
     def verify_license(self):
         """Verify license and return status with message"""
@@ -451,6 +555,21 @@ class LicenseManager:
                     # If decryption fails, file is tampered
                     os.remove(self.license_file)  # Remove tampered file
                     return False, "License file has been tampered with. Please reactivate your license."
+                
+                # First check local termination status
+                if license_data.get('isTerminated', False):
+                    self._handle_termination()
+                    return False, "License terminated"
+                
+                # Validate duration
+                duration_minutes = license_data.get('duration', 0)
+                if duration_minutes < 5:
+                    os.remove(self.license_file)  # Remove invalid license file
+                    return False, "Invalid license duration. Minimum duration is 5 minutes."
+                
+                # Print license details
+                self._print_license_details(license_data)
+                
             except Exception as e:
                 # If any error in reading/decrypting, consider file corrupted
                 if os.path.exists(self.license_file):
@@ -463,69 +582,19 @@ class LicenseManager:
                 return False, "Hardware configuration has changed. Please reactivate your license."
 
             try:
-                # Parse dates and convert to naive datetime
-                expiry_str = license_data.get('expiry_date', '')
-                activation_str = license_data.get('activation_date', '')
-                
-                if 'T' in expiry_str:
-                    expiry_date = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
-                    expiry_date = expiry_date.replace(tzinfo=None)
-                else:
-                    expiry_date = datetime.strptime(expiry_str, '%Y-%m-%d')
-                
-                if 'T' in activation_str:
-                    activation_date = datetime.fromisoformat(activation_str.replace('Z', '+00:00'))
-                    activation_date = activation_date.replace(tzinfo=None)
-                else:
-                    activation_date = datetime.strptime(activation_str, '%Y-%m-%d')
+                # Get duration and calculate expiry
+                duration_minutes = license_data.get('duration', 0)
+                activation_timestamp = license_data.get('timestamp', 0) / 1000  # Convert from milliseconds to seconds
+                activation_date = datetime.fromtimestamp(activation_timestamp)
+                expiry_date = activation_date + timedelta(minutes=duration_minutes)
                 
                 current_time = datetime.now()
-                total_license_days = (expiry_date - activation_date).days
-                days_left = (expiry_date - current_time).days
+                minutes_left = int((expiry_date - current_time).total_seconds() / 60)
                 
-                # Calculate notification threshold (40% of total license duration)
-                notification_threshold = max(2, int(total_license_days * 0.4))
-                
-                if days_left < 0:
+                if minutes_left < 0:
                     # License has expired
-                    if self._check_internet_connection():
-                        renewal_success = self.renew_license(license_data['license_key'])
-                        if renewal_success:
-                            return True, "License renewed successfully"
                     os.remove(self.license_file)  # Remove expired license file
-                    return False, "License has expired. Please connect to internet and renew your license to continue using the application."
-                elif days_left <= notification_threshold:
-                    # Within notification period
-                    if self._check_internet_connection():
-                        # Try automatic renewal
-                        if self.renew_license(license_data['license_key']):
-                            return True, "License renewed automatically"
-                        
-                    # Show urgent renewal notification
-                    if days_left <= 2:
-                        messagebox.showwarning(
-                            "License Expiring Soon",
-                            f"⚠️ URGENT: Your license expires in {days_left} days!\n\n"
-                            "Please connect to the internet immediately to renew your license.\n"
-                            "The application will stop working when the license expires."
-                        )
-                    else:
-                        messagebox.showinfo(
-                            "License Renewal Reminder",
-                            f"Your license will expire in {days_left} days.\n\n"
-                            "Please connect to the internet to renew your license.\n"
-                            f"The application will stop working in {days_left} days if not renewed."
-                        )
-                    return True, f"License valid but expires in {days_left} days. Please connect to internet soon for renewal."
-                
-                # Periodic online verification (20% of total license duration)
-                verify_threshold = max(1, int(total_license_days * 0.2))
-                last_online_check = license_data.get('last_online_check')
-                if last_online_check:
-                    last_check_date = datetime.strptime(last_online_check, '%Y-%m-%d')
-                    days_since_check = (current_time - last_check_date).days
-                    if days_since_check > verify_threshold and self._check_internet_connection():
-                        self._verify_with_server(license_data['license_key'])
+                    return False, "License has expired. Please contact administrator to activate the application."
                 
                 return True, "License valid"
             except ValueError as e:
@@ -542,87 +611,6 @@ class LicenseManager:
         except OSError:
             return False
 
-    def _verify_with_server(self, license_key):
-        """Verify license with server when internet is available"""
-        try:
-            response = requests.post(
-                f"{self.server_url}/licenses/validate",
-                json={
-                    'uniqueId': self.system_id,
-                    'licenseKey': license_key
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('valid'):
-                    # Update last online check date
-                    with open(self.license_file, 'rb') as f:
-                        encrypted_data = f.read()
-                    
-                    license_data = self._decrypt_data(encrypted_data)
-                    if license_data:
-                        license_data['last_online_check'] = datetime.now().strftime('%Y-%m-%d')
-                        encrypted_data = self._encrypt_data(license_data)
-                        if encrypted_data:
-                            with open(self.license_file, 'wb') as f:
-                                f.write(encrypted_data)
-                    return True
-            return False
-        except Exception:
-            return False
-
-    def renew_license(self, license_key):
-        """Attempt to renew license"""
-        if not self._check_internet_connection():
-            return False
-            
-        try:
-            response = requests.post(
-                f"{self.server_url}/licenses/validate",
-                json={
-                    'uniqueId': self.system_id,
-                    'licenseKey': license_key,
-                    'renew': True,
-                    'autoRenew': True
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('valid'):
-                    # Update local license file with new expiry date and last online check
-                    with open(self.license_file, 'rb') as f:
-                        encrypted_data = f.read()
-                    
-                    license_data = self._decrypt_data(encrypted_data)
-                    if license_data:
-                        expiry_str = data.get('expiryDate', '')
-                        if 'T' in expiry_str:
-                            expiry_date = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
-                        else:
-                            expiry_date = datetime.strptime(expiry_str, '%Y-%m-%d')
-                        
-                        license_data['expiry_date'] = (expiry_date + timedelta(days=30)).strftime('%Y-%m-%d')
-                        license_data['last_online_check'] = datetime.now().strftime('%Y-%m-%d')
-                        
-                        encrypted_data = self._encrypt_data(license_data)
-                        if encrypted_data:
-                            with open(self.license_file, 'wb') as f:
-                                f.write(encrypted_data)
-                            print("License renewed successfully")
-                            return True
-                    
-                print(f"License renewal failed: {data.get('message', 'Unknown error')}")
-            else:
-                print(f"License renewal failed with status code: {response.status_code}")
-            return False
-        except Exception as e:
-            print(f"Error renewing license: {e}")
-            return False
-
     def _get_hardware_hash(self):
         """Generate a hash of current hardware configuration"""
         hw_info = {
@@ -632,3 +620,153 @@ class LicenseManager:
             'mac': str(uuid.getnode())
         }
         return hashlib.sha256(json.dumps(hw_info, sort_keys=True).encode()).hexdigest()
+
+    def renew_license(self):
+        """Renew license with the server without requiring a license key"""
+        try:
+            # Read existing license data
+            if not os.path.exists(self.license_file):
+                print("Debug: License file not found at:", os.path.abspath(self.license_file))
+                return False, "No license file found"
+                
+            with open(self.license_file, 'rb') as f:
+                encrypted_data = f.read()
+            
+            license_data = self._decrypt_data(encrypted_data)
+            if not license_data:
+                print("Debug: Failed to decrypt license data")
+                return False, "License file has been tampered with"
+                
+            # Get existing license key and duration
+            license_key = license_data.get('license_key')
+            duration = license_data.get('duration')
+            
+            # Check if license is terminated
+            if license_data.get('isTerminated', False):
+                self._handle_termination()
+                return False, "License terminated"
+            
+            print("Debug: Attempting renewal with:")
+            print(f"System ID: {self.system_id}")
+            print(f"License Key: {license_key}")
+            print(f"Duration: {duration}")
+            
+            if not license_key or not duration:
+                print("Debug: Missing license key or duration in data:", license_data)
+                return False, "Invalid license data"
+            
+            # Request renewal from server
+            renewal_data = {
+                'uniqueId': self.system_id,
+                'licenseKey': license_key,
+                'duration': duration
+            }
+            print("Debug: Sending renewal request:", renewal_data)
+            
+            response = requests.post(
+                f"{self.server_url}/licenses/renew",
+                json=renewal_data,
+                timeout=30
+            )
+            
+            print("Debug: Server response status:", response.status_code)
+            print("Debug: Server response:", response.text)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check if license is terminated from server response
+                if data.get('isTerminated', False):
+                    self._handle_termination()
+                    return False, "License terminated"
+                
+                if data.get('success'):  # Changed from 'valid' to 'success'
+                    try:
+                        # Get license data from response
+                        license_info = data.get('license', {})
+                        
+                        # Get new duration and remaining minutes
+                        new_duration = license_info.get('duration')
+                        remaining_minutes = license_info.get('remainingMinutes')
+                        
+                        print("Debug: New duration from server:", new_duration)
+                        print("Debug: Remaining minutes:", remaining_minutes)
+                        
+                        if not new_duration or not remaining_minutes:
+                            return False, "Invalid license: Duration not specified in server response"
+                            
+                        # Get timestamp from server's startDate
+                        timestamp = None
+                        if 'startDate' in license_info:
+                            try:
+                                start_date = datetime.fromisoformat(license_info['startDate'].replace('Z', '+00:00'))
+                                timestamp = int(start_date.timestamp() * 1000)
+                            except (ValueError, AttributeError) as e:
+                                print(f"Error parsing startDate: {e}")
+                                timestamp = int(datetime.now().timestamp() * 1000)
+                        else:
+                            timestamp = int(datetime.now().timestamp() * 1000)
+                        
+                        # Prepare license data
+                        new_license_data = {
+                            'license_key': license_key,
+                            'uniqueId': self.system_id,
+                            'duration': new_duration,
+                            'timestamp': timestamp,
+                            'hardware_hash': self._get_hardware_hash(),
+                            'isTerminated': license_info.get('isTerminated', False)  # Include termination status
+                        }
+                        
+                        # Encrypt and save license information
+                        encrypted_data = self._encrypt_data(new_license_data)
+                        if encrypted_data:
+                            with open(self.license_file, 'wb') as f:
+                                f.write(encrypted_data)
+                            return True, f"License renewed successfully! Duration: {new_duration} minutes"
+                        else:
+                            return False, "Failed to secure license data"
+                    except ValueError as e:
+                        return False, f"Invalid license data: {str(e)}"
+                else:
+                    error_msg = data.get('message', 'Invalid license key or system ID')
+                    # Check if error is due to termination
+                    if "terminated" in error_msg.lower():
+                        self._handle_termination()
+                        return False, "License terminated"
+                    return False, error_msg
+            else:
+                # Check if error response indicates termination
+                try:
+                    error_data = response.json()
+                    if error_data.get('isTerminated', False) or "terminated" in error_data.get('message', '').lower():
+                        self._handle_termination()
+                        return False, "License terminated"
+                except:
+                    pass
+                return False, f"Server error: {response.text}"
+        except Exception as e:
+            return False, f"Error renewing license: {str(e)}"
+
+    def _handle_termination(self):
+        """Handle license termination by removing license file and closing application"""
+        try:
+            # Remove the license file if it exists
+            if os.path.exists(self.license_file):
+                os.remove(self.license_file)
+            
+            # Show error message
+            messagebox.showerror("License Terminated", "Your license has been terminated. Please contact the administrator.")
+            
+            # Import Qt modules here to avoid circular imports
+            from PyQt6.QtWidgets import QApplication
+            from PyQt6.QtCore import QCoreApplication
+            
+            # Close the Qt application
+            app = QApplication.instance()
+            if app:
+                app.quit()
+            else:
+                # Fallback to sys.exit if Qt app is not found
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error handling termination: {str(e)}")

@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QMessageBox, QToolBar, QInputDialog, QMenu, QSizePolicy, QLineEdit, QApplication, QDialog)
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QPoint, QSize
 from PyQt6.QtGui import QPixmap, QImage, QIcon
 import os
 from pathlib import Path
@@ -13,6 +13,10 @@ import json
 import sys
 from utils.logger import setup_logger
 from .pin_dialog import PinDialog
+from .notification_panel import NotificationPanel
+from utils.license_manager import LicenseManager
+from datetime import datetime, timedelta
+import requests
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -47,6 +51,21 @@ class MainWindow(QMainWindow):
         self.detection_workers = {}
         self.detector = None  # Will be initialized later in initialize_detector()
         
+        # Initialize license manager
+        self.license_manager = LicenseManager()
+        
+        # Setup notification panel connections
+        self.notification_panel.activate_btn.clicked.connect(self._activate_license)
+        self.notification_panel.dismiss_btn.clicked.connect(self._dismiss_notification)
+        
+        # Start license check timer (every minute)
+        self.license_check_timer = QTimer()
+        self.license_check_timer.timeout.connect(self._check_license_status)
+        self.license_check_timer.start(60000)  # Check every minute
+        
+        # Initial checks
+        self._check_license_status()
+
     def _create_toolbar(self):
         """Create main toolbar"""
         self.toolbar = QToolBar()
@@ -124,7 +143,7 @@ class MainWindow(QMainWindow):
                 background-color: #3a4458;
             }
             QPushButton::menu-indicator {
-                width: 0px;  /* This removes the dropdown arrow */
+                width: 0px;
             }
         """)
         
@@ -159,13 +178,13 @@ class MainWindow(QMainWindow):
         # Add left section to main layout
         container_layout.addLayout(left_section)
         
-        # Center section with search
+        # Center section with search and notification
         center_section = QHBoxLayout()
         center_section.setSpacing(0)
         
         # Create search container with fixed width
         search_container = QWidget()
-        search_container.setFixedWidth(300)  # Increased fixed width
+        search_container.setFixedWidth(300)
         search_layout = QHBoxLayout(search_container)
         search_layout.setContentsMargins(0, 0, 0, 0)
         search_layout.setSpacing(0)
@@ -215,7 +234,7 @@ class MainWindow(QMainWindow):
         
         # Create a container for the count label with fixed positioning
         count_container = QWidget()
-        count_container.setFixedSize(120, 28)  # Increased width to accommodate text
+        count_container.setFixedSize(120, 28)
         
         # Add search count label with absolute positioning
         self.search_count_label = QLabel(count_container)
@@ -234,40 +253,77 @@ class MainWindow(QMainWindow):
         self.search_count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Position the count label absolutely
-        self.search_count_label.setGeometry(0, 4, 110, 20)  # Increased width
+        self.search_count_label.setGeometry(0, 4, 110, 20)
         
         # Initialize with total count display
         total_streams = len(self.config['streams'])
-        self.search_count_label.setText(f"Total {total_streams}")  # Show total initially
+        self.search_count_label.setText(f"Total {total_streams}")
         self.search_count_label.show()
+        
+        # Add notification bell button with improved styling
+        self.notification_btn = QPushButton()
+        self.notification_btn.setFixedSize(28, 28)
+        self.notification_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                padding: 0px;
+                margin-right: 8px;
+            }
+            QPushButton:hover {
+                background-color: #4a5568;
+                border-radius: 4px;
+            }
+        """)
+        
+        # Set bell icon with proper path
+        bell_icon_path = os.path.join(self._get_icons_dir(), 'bell.png')
+        if os.path.exists(bell_icon_path):
+            bell_icon = QIcon(bell_icon_path)
+            self.notification_btn.setIcon(bell_icon)
+            self.notification_btn.setIconSize(QSize(16, 16))
+        else:
+            self.logger.error(f"Bell icon not found at: {bell_icon_path}")
+            # Use text as fallback
+            self.notification_btn.setText("🔔")
+            self.notification_btn.setStyleSheet(self.notification_btn.styleSheet() + """
+                QPushButton {
+                    font-size: 16px;
+                }
+            """)
+        
+        # Create notification badge with improved visibility
+        self.notification_badge = QLabel(self.notification_btn)
+        self.notification_badge.setFixedSize(8, 8)
+        self.notification_badge.setStyleSheet("""
+            QLabel {
+                background-color: #e53e3e;
+                border-radius: 4px;
+                border: 1px solid #ffffff;
+            }
+        """)
+        self.notification_badge.hide()
+        self.notification_badge.move(20, 4)
+        
+        # Create notification panel with improved positioning
+        self.notification_panel = NotificationPanel(self)
+        self.notification_panel.hide()
+        self.notification_panel.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Popup)
+        
+        # Connect notification button click
+        self.notification_btn.clicked.connect(self._toggle_notification_panel)
         
         # Add containers to center section
         center_section.addWidget(search_container)
         center_section.addWidget(count_container)
+        center_section.addWidget(self.notification_btn)
         
         # Add center section to main layout with stretches for centering
         container_layout.addStretch(1)
         container_layout.addLayout(center_section)
         container_layout.addStretch(1)
         
-        # Right section
-        right_section = QHBoxLayout()
-        
-        # Add company label
-        company_label = QLabel("An AI Product by Aurelia Innovatives Pvt. Ltd.")
-        company_label.setStyleSheet("""
-            QLabel {
-                color: #FFFFFF;
-                font-size: 12px;
-                font-family: 'Segoe UI', Arial, sans-serif;
-            }
-        """)
-        right_section.addWidget(company_label)
-        
-        # Add right section to main layout
-        container_layout.addLayout(right_section)
-
-        # Add the container to the toolbar
+        # Add container to toolbar
         self.toolbar.addWidget(container)
 
     def _add_new_stream(self):
@@ -786,4 +842,132 @@ class MainWindow(QMainWindow):
         if getattr(sys, 'frozen', False):
             return os.path.join(sys._MEIPASS, 'icons')
         return os.path.join(Path(__file__).resolve().parent.parent.parent, 'icons')
+
+    def _toggle_notification_panel(self):
+        """Toggle the notification panel visibility"""
+        if self.notification_panel.isVisible():
+            self.notification_panel.hide()
+        else:
+            # Position the panel below the notification button
+            button_pos = self.notification_btn.mapToGlobal(QPoint(0, self.notification_btn.height()))
+            self.notification_panel.move(button_pos)
+            self.notification_panel.show()
+            self.notification_panel.raise_()
+            
+            # Update the panel with current license status
+            is_valid, message = self.license_manager.verify_license()
+            if is_valid:
+                try:
+                    # Read license file directly to get expiration date
+                    license_file = "license.dat"
+                    if os.path.exists(license_file):
+                        with open(license_file, 'rb') as f:
+                            encrypted_data = f.read()
+                        license_data = self.license_manager._decrypt_data(encrypted_data)
+                        if license_data and 'duration' in license_data and 'timestamp' in license_data:
+                            # Calculate expiry date based on duration and timestamp
+                            activation_timestamp = license_data['timestamp'] / 1000  # Convert from milliseconds to seconds
+                            activation_date = datetime.fromtimestamp(activation_timestamp)
+                            expiry_date = activation_date + timedelta(minutes=license_data['duration'])
+                            self.notification_panel.update_status(expiry_date)
+                        else:
+                            self.logger.error("No duration/timestamp found in license data")
+                            QMessageBox.critical(self, "License Error", "Invalid license: Missing duration data")
+                            self.notification_panel.update_status(None)
+                    else:
+                        self.logger.error("License file not found")
+                        QMessageBox.critical(self, "License Error", "License file not found")
+                        self.notification_panel.update_status(None)
+                except Exception as e:
+                    self.logger.error(f"Error reading license file: {str(e)}")
+                    QMessageBox.critical(self, "License Error", "Error reading license file")
+                    self.notification_panel.update_status(None)
+            else:
+                self.notification_panel.update_status(None)
+
+    def _check_license_status(self):
+        """Check license status and update notification badge"""
+        is_valid, message = self.license_manager.verify_license()
+        if is_valid:
+            try:
+                # Read license file directly to get expiration date
+                license_file = "license.dat"
+                if os.path.exists(license_file):
+                    with open(license_file, 'rb') as f:
+                        encrypted_data = f.read()
+                    license_data = self.license_manager._decrypt_data(encrypted_data)
+                    if license_data and 'duration' in license_data and 'timestamp' in license_data:
+                        # Calculate expiry date based on duration and timestamp
+                        activation_timestamp = license_data['timestamp'] / 1000  # Convert from milliseconds to seconds
+                        activation_date = datetime.fromtimestamp(activation_timestamp)
+                        expiry_date = activation_date + timedelta(minutes=license_data['duration'])
+                        minutes_remaining = int((expiry_date - datetime.now()).total_seconds() / 60)
+                        self.notification_badge.setVisible(minutes_remaining <= 180)  # Show badge if less than 3 hours remaining
+                    else:
+                        self.notification_badge.setVisible(True)
+                else:
+                    self.notification_badge.setVisible(True)
+            except Exception as e:
+                self.logger.error(f"Error reading license file: {str(e)}")
+                self.notification_badge.setVisible(True)
+        else:
+            self.notification_badge.setVisible(True)
+
+    def _activate_license(self):
+        """Handle license activation or renewal"""
+        try:
+            # Check if we have an existing license
+            is_valid, message = self.license_manager.verify_license()
+            
+            if is_valid:
+                # Show loading state
+                self.notification_panel.start_loading()
+                self.notification_panel.status_label.setText("Renewing license...")
+                
+                # Attempt renewal
+                success, message = self.license_manager.renew_license()
+                
+                # Stop loading state
+                self.notification_panel.stop_loading()
+                
+                if success:
+                    QMessageBox.information(self, "Success", message)
+                    self._check_license_status()
+                    self._toggle_notification_panel()  # Hide panel after successful renewal
+                else:
+                    QMessageBox.warning(self, "Error", f"Failed to renew license: {message}")
+            else:
+                # If no valid license, proceed with normal activation
+                license_key, ok = QInputDialog.getText(
+                    self,
+                    "Activate License",
+                    "Enter your license key:",
+                    QLineEdit.EchoMode.Normal,
+                    ""
+                )
+                
+                if ok and license_key:
+                    # Show loading state
+                    self.notification_panel.start_loading()
+                    self.notification_panel.status_label.setText("Activating license...")
+                    
+                    success, message = self.license_manager.activate_license(license_key)
+                    
+                    # Stop loading state
+                    self.notification_panel.stop_loading()
+                    
+                    if success:
+                        QMessageBox.information(self, "Success", message)
+                        self._check_license_status()
+                        self._toggle_notification_panel()  # Hide panel after successful activation
+                    else:
+                        QMessageBox.warning(self, "Error", f"Failed to activate license: {message}")
+        except Exception as e:
+            self.notification_panel.stop_loading()
+            QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
+
+    def _dismiss_notification(self):
+        """Dismiss the notification panel"""
+        self.notification_panel.hide()
+        self.notification_badge.hide()
 
