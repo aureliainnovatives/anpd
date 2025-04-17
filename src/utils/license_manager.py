@@ -624,6 +624,10 @@ class LicenseManager:
     def renew_license(self):
         """Renew license with the server without requiring a license key"""
         try:
+            # First check internet connectivity
+            if not self._check_internet_connection():
+                return False, "No internet connection. Please check your connection and try again."
+            
             # Read existing license data
             if not os.path.exists(self.license_file):
                 print("Debug: License file not found at:", os.path.abspath(self.license_file))
