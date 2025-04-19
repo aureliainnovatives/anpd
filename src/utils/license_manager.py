@@ -18,6 +18,7 @@ class LicenseManager:
         self.license_file = "license.dat"
         self.system_id = self._generate_system_id()
         self._init_encryption()
+        self.renewal_period_minutes = 3  # 3 hours in minutes - change this value to adjust renewal period
         
         # Only try to register device if no valid license exists
         if not os.path.exists(self.license_file):
@@ -595,6 +596,10 @@ class LicenseManager:
                     # License has expired
                     os.remove(self.license_file)  # Remove expired license file
                     return False, "License has expired. Please contact administrator to activate the application."
+                
+                # Check if in renewal period using the renewal_period_minutes variable
+                if minutes_left <= self.renewal_period_minutes:
+                    return True, f"License valid (Renewal period: {minutes_left} minutes remaining)"
                 
                 return True, "License valid"
             except ValueError as e:

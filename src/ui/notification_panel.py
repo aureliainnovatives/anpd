@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QFrame)
+                             QLabel, QFrame, QTextEdit)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon
 import os
@@ -9,6 +9,9 @@ class NotificationPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setup_ui()
+        self.notifications = []  # Store notifications
+        self.current_notification_index = 0
+        self.license_manager = None  # Will be set by MainWindow
         
     def setup_ui(self):
         self.setFixedWidth(300)
@@ -131,6 +134,20 @@ class NotificationPanel(QWidget):
         self.spinner_timer = QTimer()
         self.spinner_timer.timeout.connect(self._update_spinner)
         
+        # Create notification area
+        self.notification_area = QTextEdit()
+        self.notification_area.setReadOnly(True)
+        self.notification_area.setStyleSheet("""
+            QTextEdit {
+                background-color: #2c3e50;
+                color: #ecf0f1;
+                border: none;
+                border-radius: 5px;
+                padding: 5px;
+            }
+        """)
+        layout.addWidget(self.notification_area)
+        
     def _update_spinner(self):
         """Update spinner animation frame"""
         self.current_frame = (self.current_frame + 1) % len(self.spinner_frames)
@@ -160,14 +177,19 @@ class NotificationPanel(QWidget):
         now = datetime.now()
         minutes_remaining = int((expiration_date - now).total_seconds() / 60)
         
+        # Get renewal period from license manager if available
+        renewal_period = 180  # Default value
+        if self.license_manager:
+            renewal_period = self.license_manager.renewal_period_minutes
+        
         if minutes_remaining <= 0:
             self.status_label.setText("Your license has expired.")
             self.days_label.setText("Please activate a new license to continue using the application.")
             self.activate_btn.setEnabled(True)
             self.dismiss_btn.setEnabled(False)
-        elif minutes_remaining <= 180:  # 3 hours
-            self.status_label.setText("Your license is about to expire.")
-            self.days_label.setText(f"{minutes_remaining} minutes remaining")
+        elif minutes_remaining <= renewal_period:  # Use renewal period variable
+            self.status_label.setText("Your license is in renewal period.")
+            self.days_label.setText(f"{minutes_remaining} minutes remaining until renewal needed")
             self.activate_btn.setEnabled(True)
             self.dismiss_btn.setEnabled(True)
         else:
@@ -175,3 +197,15 @@ class NotificationPanel(QWidget):
             self.days_label.setText(f"Expires in {minutes_remaining} minutes")
             self.activate_btn.setEnabled(False)
             self.dismiss_btn.setEnabled(True)
+
+    def add_notification(self, message):
+        """Add a new notification to the panel"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        notification = f"[{timestamp}] {message}"
+        self.notifications.append(notification)
+        self.notification_area.append(notification)
+        
+        # Auto-scroll to bottom
+        self.notification_area.verticalScrollBar().setValue(
+            self.notification_area.verticalScrollBar().maximum()
+        )

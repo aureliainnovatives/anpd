@@ -54,19 +54,34 @@ class MainWindow(QMainWindow):
         # Initialize license manager
         self.license_manager = LicenseManager()
         
+        # Create notification panel with improved positioning
+        self.notification_panel = NotificationPanel(self)
+        self.notification_panel.hide()
+        self.notification_panel.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Popup)
+        
+        # Set license manager reference in notification panel
+        self.notification_panel.license_manager = self.license_manager
+        
         # Setup notification panel connections
         self.notification_panel.activate_btn.clicked.connect(self._activate_license)
         self.notification_panel.dismiss_btn.clicked.connect(self._dismiss_notification)
         
-        # Start license check timer (every minute)
+        # Connect notification button click
+        self.notification_btn.clicked.connect(self._toggle_notification_panel)
+        
+        # Start license check timer (every 5 seconds)
         self.license_check_timer = QTimer()
         self.license_check_timer.timeout.connect(self._check_license_status)
-        self.license_check_timer.start(60000)  # Check every minute
+        self.license_check_timer.start(5000)  # Check every 5 seconds instead of 60 seconds
         
         # Initial checks
         self._check_license_status()
         
         self.license_termination = False  # Add flag to track license termination
+        
+        # Initialize automatic renewal timer
+        self.renewal_timer = QTimer()
+        self.renewal_timer.timeout.connect(self._check_license_for_renewal)
 
     def _create_toolbar(self):
         """Create main toolbar"""
@@ -262,7 +277,24 @@ class MainWindow(QMainWindow):
         self.search_count_label.setText(f"Total {total_streams}")
         self.search_count_label.show()
         
-        # Add notification bell button with improved styling
+        # Create container for notification and license indicator
+        notification_container = QWidget()
+        notification_layout = QHBoxLayout(notification_container)
+        notification_layout.setContentsMargins(0, 0, 0, 0)
+        notification_layout.setSpacing(8)  # Space between bell and indicator
+
+        # Add license status indicator
+        self.license_status_indicator = QLabel()
+        self.license_status_indicator.setFixedSize(12, 12)  # Made slightly smaller to match UI
+        self.license_status_indicator.setStyleSheet("""
+            QLabel {
+                border-radius: 6px;
+                background-color: #2ecc71;  /* Default green */
+                border: 1px solid #ffffff;
+            }
+        """)
+        
+        # Add notification bell button
         self.notification_btn = QPushButton()
         self.notification_btn.setFixedSize(28, 28)
         self.notification_btn.setStyleSheet("""
@@ -270,7 +302,6 @@ class MainWindow(QMainWindow):
                 background-color: transparent;
                 border: none;
                 padding: 0px;
-                margin-right: 8px;
             }
             QPushButton:hover {
                 background-color: #4a5568;
@@ -278,23 +309,16 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        # Set bell icon with proper path
+        # Set bell icon
         bell_icon_path = os.path.join(self._get_icons_dir(), 'bell.png')
         if os.path.exists(bell_icon_path):
             bell_icon = QIcon(bell_icon_path)
             self.notification_btn.setIcon(bell_icon)
             self.notification_btn.setIconSize(QSize(16, 16))
         else:
-            self.logger.error(f"Bell icon not found at: {bell_icon_path}")
-            # Use text as fallback
             self.notification_btn.setText("🔔")
-            self.notification_btn.setStyleSheet(self.notification_btn.styleSheet() + """
-                QPushButton {
-                    font-size: 16px;
-                }
-            """)
         
-        # Create notification badge with improved visibility
+        # Create notification badge
         self.notification_badge = QLabel(self.notification_btn)
         self.notification_badge.setFixedSize(8, 8)
         self.notification_badge.setStyleSheet("""
@@ -307,18 +331,14 @@ class MainWindow(QMainWindow):
         self.notification_badge.hide()
         self.notification_badge.move(20, 4)
         
-        # Create notification panel with improved positioning
-        self.notification_panel = NotificationPanel(self)
-        self.notification_panel.hide()
-        self.notification_panel.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Popup)
-        
-        # Connect notification button click
-        self.notification_btn.clicked.connect(self._toggle_notification_panel)
-        
+        # Add widgets to notification container
+        notification_layout.addWidget(self.notification_btn)
+        notification_layout.addWidget(self.license_status_indicator)
+
         # Add containers to center section
         center_section.addWidget(search_container)
         center_section.addWidget(count_container)
-        center_section.addWidget(self.notification_btn)
+        center_section.addWidget(notification_container)
         
         # Add center section to main layout with stretches for centering
         container_layout.addStretch(1)
@@ -889,6 +909,79 @@ class MainWindow(QMainWindow):
             else:
                 self.notification_panel.update_status(None)
 
+    def _check_license_for_renewal(self):
+        """Check license status and attempt renewal if needed"""
+        try:
+            # Read license file to get expiration date
+            license_file = "license.dat"
+            if not os.path.exists(license_file):
+                return
+
+            with open(license_file, 'rb') as f:
+                encrypted_data = f.read()
+            license_data = self.license_manager._decrypt_data(encrypted_data)
+            
+            if not license_data or 'duration' not in license_data or 'timestamp' not in license_data:
+                return
+
+            # Calculate remaining time
+            activation_timestamp = license_data['timestamp'] / 1000
+            activation_date = datetime.fromtimestamp(activation_timestamp)
+            expiry_date = activation_date + timedelta(minutes=license_data['duration'])
+            minutes_remaining = int((expiry_date - datetime.now()).total_seconds() / 60)
+
+            # Update status indicator
+            self._update_license_status_indicator(minutes_remaining)
+
+            # Check if we're in the renewal period
+            if minutes_remaining <= self.license_manager.renewal_period_minutes and minutes_remaining > 0:
+                # Check internet connectivity
+                if self.license_manager._check_internet_connection():
+                    # Attempt renewal
+                    success, message = self.license_manager.renew_license()
+                    if success:
+                        # Add notification
+                        self.notification_panel.add_notification("License renewed successfully!")
+                    else:
+                        # Add notification for failed renewal
+                        self.notification_panel.add_notification(f"Failed to renew license: {message}")
+                else:
+                    # Add notification for no internet
+                    self.notification_panel.add_notification("No internet connection. Automatic renewal failed.")
+
+        except Exception as e:
+            self.logger.error(f"Error in license renewal check: {str(e)}")
+
+    def _update_license_status_indicator(self, minutes_remaining):
+        """Update the license status indicator based on remaining time"""
+        if minutes_remaining <= 0:
+            # Red for expired
+            self.license_status_indicator.setStyleSheet("""
+                QLabel {
+                    border-radius: 6px;
+                    background-color: #e74c3c;
+                    border: 1px solid #ffffff;
+                }
+            """)
+        elif minutes_remaining <= self.license_manager.renewal_period_minutes:  # Use renewal period from license manager
+            # Yellow for renewal period
+            self.license_status_indicator.setStyleSheet("""
+                QLabel {
+                    border-radius: 6px;
+                    background-color: #f1c40f;
+                    border: 1px solid #ffffff;
+                }
+            """)
+        else:
+            # Green for normal operation
+            self.license_status_indicator.setStyleSheet("""
+                QLabel {
+                    border-radius: 6px;
+                    background-color: #2ecc71;
+                    border: 1px solid #ffffff;
+                }
+            """)
+
     def _check_license_status(self):
         """Check license status and update notification badge"""
         is_valid, message = self.license_manager.verify_license()
@@ -902,11 +995,22 @@ class MainWindow(QMainWindow):
                     license_data = self.license_manager._decrypt_data(encrypted_data)
                     if license_data and 'duration' in license_data and 'timestamp' in license_data:
                         # Calculate expiry date based on duration and timestamp
-                        activation_timestamp = license_data['timestamp'] / 1000  # Convert from milliseconds to seconds
+                        activation_timestamp = license_data['timestamp'] / 1000
                         activation_date = datetime.fromtimestamp(activation_timestamp)
                         expiry_date = activation_date + timedelta(minutes=license_data['duration'])
                         minutes_remaining = int((expiry_date - datetime.now()).total_seconds() / 60)
-                        self.notification_badge.setVisible(minutes_remaining <= 180)  # Show badge if less than 3 hours remaining
+                        
+                        # Update status indicator
+                        self._update_license_status_indicator(minutes_remaining)
+                        
+                        # Start renewal timer if in renewal period
+                        if minutes_remaining <= self.license_manager.renewal_period_minutes and minutes_remaining > 0:
+                            if not self.renewal_timer.isActive():
+                                self.renewal_timer.start(15000)  # Check every 15 seconds
+                        else:
+                            self.renewal_timer.stop()
+                            
+                        self.notification_badge.setVisible(minutes_remaining <= self.license_manager.renewal_period_minutes)
                     else:
                         self.notification_badge.setVisible(True)
                 else:
@@ -936,7 +1040,7 @@ class MainWindow(QMainWindow):
                 
                 if success:
                     QMessageBox.information(self, "Success", message)
-                    self._check_license_status()
+                    self._check_license_status()  # This will update the indicator color
                     self._toggle_notification_panel()  # Hide panel after successful renewal
                 else:
                     QMessageBox.warning(self, "Error", f"Failed to renew license: {message}")
