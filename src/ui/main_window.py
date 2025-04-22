@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QMessageBox, QToolBar, QInputDialog, QMenu, QSizePolicy, QLineEdit, QApplication, QDialog)
 from PyQt6.QtCore import Qt, QTimer, QPoint, QSize
-from PyQt6.QtGui import QPixmap, QImage, QIcon
+from PyQt6.QtGui import QPixmap, QImage, QIcon, QKeySequence, QShortcut
 import os
 from pathlib import Path
 from ui.rtsp_handler import RTSPHandler
@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
         
         # Create notification panel with improved positioning
         self.notification_panel = NotificationPanel(self)
-        self.notification_panel.hide()
+        self.notification_panel.hide()  # Hide by default
         self.notification_panel.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Popup)
         
         # Set license manager reference in notification panel
@@ -66,8 +66,9 @@ class MainWindow(QMainWindow):
         self.notification_panel.activate_btn.clicked.connect(self._activate_license)
         self.notification_panel.dismiss_btn.clicked.connect(self._dismiss_notification)
         
-        # Connect notification button click
-        self.notification_btn.clicked.connect(self._toggle_notification_panel)
+        # Add keyboard shortcut for notification panel (Ctrl+Alt+L)
+        self.notification_shortcut = QShortcut(QKeySequence("Ctrl+Alt+Shift+L"), self)
+        self.notification_shortcut.activated.connect(self._toggle_notification_panel)
         
         # Start license check timer (every 5 seconds)
         self.license_check_timer = QTimer()
@@ -285,7 +286,7 @@ class MainWindow(QMainWindow):
 
         # Add license status indicator
         self.license_status_indicator = QLabel()
-        self.license_status_indicator.setFixedSize(12, 12)  # Made slightly smaller to match UI
+        self.license_status_indicator.setFixedSize(12, 12)
         self.license_status_indicator.setStyleSheet("""
             QLabel {
                 border-radius: 6px;

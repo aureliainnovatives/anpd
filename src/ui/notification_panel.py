@@ -17,8 +17,8 @@ class NotificationPanel(QWidget):
         self.setFixedWidth(300)
         self.setStyleSheet("""
             QWidget {
-                background-color: #2d3748;
-                border: 1px solid #1a202c;
+                background-color: #1a1a1a;
+                border: 1px solid #333333;
                 border-radius: 4px;
             }
         """)
@@ -28,7 +28,7 @@ class NotificationPanel(QWidget):
         layout.setSpacing(8)
         
         # Header
-        header = QLabel("License Status")
+        header = QLabel("System Status")
         header.setStyleSheet("""
             QLabel {
                 color: #ffffff;
@@ -41,14 +41,14 @@ class NotificationPanel(QWidget):
         # Separator
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
-        line.setStyleSheet("background-color: #4a5568;")
+        line.setStyleSheet("background-color: #333333;")
         layout.addWidget(line)
         
         # Status message
         self.status_label = QLabel()
         self.status_label.setStyleSheet("""
             QLabel {
-                color: #e2e8f0;
+                color: #cccccc;
                 font-size: 12px;
             }
         """)
@@ -59,7 +59,7 @@ class NotificationPanel(QWidget):
         self.days_label = QLabel()
         self.days_label.setStyleSheet("""
             QLabel {
-                color: #f6ad55;
+                color: #ff9900;
                 font-size: 12px;
                 font-weight: bold;
             }
@@ -73,10 +73,10 @@ class NotificationPanel(QWidget):
         button_layout.setSpacing(8)
         
         # Activate button
-        self.activate_btn = QPushButton("Activate License")
+        self.activate_btn = QPushButton("Update License")
         self.activate_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3498db;
+                background-color: #333333;
                 color: white;
                 border: none;
                 padding: 8px;
@@ -86,10 +86,10 @@ class NotificationPanel(QWidget):
                 min-width: 120px;
             }
             QPushButton:hover {
-                background-color: #2980b9;
+                background-color: #444444;
             }
             QPushButton:disabled {
-                background-color: #95a5a6;
+                background-color: #222222;
             }
         """)
         button_layout.addWidget(self.activate_btn)
@@ -108,10 +108,10 @@ class NotificationPanel(QWidget):
         layout.addWidget(button_container)
         
         # Dismiss button
-        self.dismiss_btn = QPushButton("Dismiss")
+        self.dismiss_btn = QPushButton("Close")
         self.dismiss_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4a5568;
+                background-color: #333333;
                 color: white;
                 border: none;
                 padding: 8px;
@@ -120,7 +120,7 @@ class NotificationPanel(QWidget):
                 font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #3a4458;
+                background-color: #444444;
             }
         """)
         layout.addWidget(self.dismiss_btn)
@@ -139,8 +139,8 @@ class NotificationPanel(QWidget):
         self.notification_area.setReadOnly(True)
         self.notification_area.setStyleSheet("""
             QTextEdit {
-                background-color: #2c3e50;
-                color: #ecf0f1;
+                background-color: #222222;
+                color: #cccccc;
                 border: none;
                 border-radius: 5px;
                 padding: 5px;
