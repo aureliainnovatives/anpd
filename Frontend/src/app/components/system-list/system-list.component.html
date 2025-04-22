@@ -18,7 +18,25 @@
         <ng-container matColumnDef="uniqueId">
           <th mat-header-cell *matHeaderCellDef> System ID </th>
           <td mat-cell *matCellDef="let system"> 
-            <span class="system-id">{{system.uniqueId}}</span>
+            <span class="system-id" [matTooltip]="system.uniqueId">
+              {{system.uniqueId | slice:0:12}}...
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Client Name Column -->
+        <ng-container matColumnDef="clientName">
+          <th mat-header-cell *matHeaderCellDef> Client Name </th>
+          <td mat-cell *matCellDef="let system">
+            <div class="client-name-container">
+              <span>{{system.clientName || '-'}}</span>
+              <button mat-icon-button
+                      color="primary"
+                      matTooltip="Edit Client Name"
+                      (click)="$event.stopPropagation(); editClientName(system)">
+                <mat-icon>edit</mat-icon>
+              </button>
+            </div>
           </td>
         </ng-container>
 
@@ -37,7 +55,15 @@
           <th mat-header-cell *matHeaderCellDef> System Info </th>
           <td mat-cell *matCellDef="let system">
             <div class="system-info">
-              <span class="system-name">{{system.systemInfo.name}}</span>
+              <span class="system-name">
+                <mat-icon *ngIf="system.systemInfo.name.toLowerCase().includes('desktop')">desktop_windows</mat-icon>
+                <mat-icon *ngIf="system.systemInfo.name.toLowerCase().includes('laptop')">laptop</mat-icon>
+                <mat-icon *ngIf="system.systemInfo.name.toLowerCase().includes('server')">dns</mat-icon>
+                <mat-icon *ngIf="!system.systemInfo.name.toLowerCase().includes('desktop') && 
+                                 !system.systemInfo.name.toLowerCase().includes('laptop') && 
+                                 !system.systemInfo.name.toLowerCase().includes('server')">computer</mat-icon>
+                {{system.systemInfo.name}}
+              </span>
               <span class="system-os">{{system.systemInfo.os}}</span>
             </div>
           </td>
@@ -69,17 +95,6 @@
           </td>
         </ng-container>
 
-        <!-- Last Activated Column -->
-        <ng-container matColumnDef="lastActivated">
-          <th mat-header-cell *matHeaderCellDef> Last Activated </th>
-          <td mat-cell *matCellDef="let system">
-            <span *ngIf="system.license?.startDate">
-              {{system.license.startDate | date:'medium'}}
-            </span>
-            <span *ngIf="!system.license?.startDate">Never</span>
-          </td>
-        </ng-container>
-
         <!-- Created At Column -->
         <ng-container matColumnDef="createdAt">
           <th mat-header-cell *matHeaderCellDef> Created At </th>
@@ -95,13 +110,13 @@
             <div class="action-buttons">
               <button
                 mat-flat-button
-                color="primary"
+                color="accent"
                 (click)="generateLicense(system._id)"
                 class="action-button"
               >
                 <div class="button-content">
-                  <mat-icon>key</mat-icon>
-                  <span>New</span>
+                  <mat-icon>add_circle_outline</mat-icon>
+                  <span>New License</span>
                 </div>
               </button>
               <button
@@ -114,7 +129,7 @@
               >
                 <div class="button-content">
                   <mat-spinner *ngIf="terminatingLicenseId === system._id" diameter="18"></mat-spinner>
-                  <mat-icon *ngIf="terminatingLicenseId !== system._id">block</mat-icon>
+                  <mat-icon *ngIf="terminatingLicenseId !== system._id">remove_circle_outline</mat-icon>
                   <span>{{ terminatingLicenseId === system._id ? 'Terminating...' : 'Terminate' }}</span>
                 </div>
               </button>

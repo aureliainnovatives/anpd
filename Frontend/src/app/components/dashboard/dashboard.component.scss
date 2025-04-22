@@ -1,15 +1,160 @@
 .dashboard-container {
-  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.dashboard-header {
+  margin-bottom: 3rem;
+  text-align: center;
+  
+  h1 {
+    font-size: 32px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.75rem;
+  }
+  
+  .subtitle {
+    font-size: 16px;
+    color: #64748b;
+  }
 }
 
 .dashboard-stats {
-  display: flex;
-  justify-content: space-between;
-  margin: 20px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .stat-card {
-  flex: 1;
-  margin: 0 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  border-radius: 12px;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
   text-align: center;
+  min-height: 180px;
+  position: relative;
+  overflow: hidden;
+  
+  &:hover {
+    transform: translateY(-2px);
+  }
+  
+  &.pending {
+    border-left: 4px solid #f59e0b;
+    
+    .stat-icon mat-icon {
+      color: #f59e0b;
+    }
+  }
+  
+  &.active {
+    border-left: 4px solid #10b981;
+    
+    .stat-icon mat-icon {
+      color: #10b981;
+    }
+  }
+  
+  &.expired {
+    border-left: 4px solid #ef4444;
+    
+    .stat-icon mat-icon {
+      color: #ef4444;
+    }
+  }
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  
+  .stat-value {
+    font-size: 36px;
+    font-weight: 600;
+    margin: 0;
+    color: #1e293b;
+    line-height: 1;
+  }
+  
+  .stat-label {
+    font-size: 16px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1;
+  }
+}
+
+.dashboard-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 3rem;
+  
+  button {
+    padding: 0 24px;
+    height: 42px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 500;
+    
+    mat-icon {
+      margin-right: 8px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 1rem;
+  }
+  
+  .dashboard-header {
+    h1 {
+      font-size: 1.5rem;
+    }
+    
+    .subtitle {
+      font-size: 1rem;
+    }
+  }
+  
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .stat-icon mat-icon {
+    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
+    line-height: 2rem;
+  }
+  
+  .stat-content .stat-value {
+    font-size: 1.5rem;
+  }
 } 

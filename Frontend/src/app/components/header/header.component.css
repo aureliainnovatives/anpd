@@ -1,0 +1,83 @@
+.app-header {
+  background-color: #0b2641;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+}
+
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 2rem;
+  width: calc(100% - 4rem);  /* Account for left and right padding */
+  max-width: 100%;
+  margin: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.logo h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  margin-right: 1rem; /* Add margin to prevent overlap with scrollbar */
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  background-color: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.logout-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.logout-icon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .header-container {
+    padding: 0.5rem 1rem;
+    width: calc(100% - 2rem);  /* Account for smaller padding on mobile */
+  }
+  
+  .logo h1 {
+    font-size: 1.2rem;
+  }
+  
+  .logout-button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+
+  .user-actions {
+    margin-right: 0.5rem; /* Smaller margin on mobile */
+  }
+} 

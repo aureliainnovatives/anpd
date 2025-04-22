@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ClipboardModule } from '@angular/cdk/clipboard';
@@ -26,6 +26,8 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { SystemListComponent } from './components/system-list/system-list.component';
 import { LicenseGeneratorComponent } from './components/license-generator/license-generator.component';
 import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
+import { LoginComponent } from './components/login/login.component';
+import { HeaderComponent } from './components/header/header.component';
 
 @NgModule({
   declarations: [
@@ -33,7 +35,9 @@ import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dial
     DashboardComponent,
     SystemListComponent,
     LicenseGeneratorComponent,
-    ConfirmDialogComponent
+    ConfirmDialogComponent,
+    LoginComponent,
+    HeaderComponent
   ],
   imports: [
     BrowserModule,

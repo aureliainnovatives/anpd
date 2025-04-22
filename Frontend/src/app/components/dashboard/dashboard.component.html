@@ -1,28 +1,45 @@
 <div class="dashboard-container">
-  <mat-card>
-    <mat-card-header>
-      <mat-card-title>License Control Dashboard</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <div class="dashboard-stats">
-        <mat-card class="stat-card">
-          <mat-card-title>{{ pendingSystems }}</mat-card-title>
-          <mat-card-subtitle>Pending Systems</mat-card-subtitle>
-        </mat-card>
-        <mat-card class="stat-card">
-          <mat-card-title>{{ activeLicenses }}</mat-card-title>
-          <mat-card-subtitle>Active Licenses</mat-card-subtitle>
-        </mat-card>
-        <mat-card class="stat-card">
-          <mat-card-title>{{ expiredLicenses }}</mat-card-title>
-          <mat-card-subtitle>Expired Licenses</mat-card-subtitle>
-        </mat-card>
+  <div class="dashboard-header">
+    <h1>Welcome to ANPD Dashboard</h1>
+    <p class="subtitle">Monitor and manage your license control system</p>
+  </div>
+
+  <div class="dashboard-stats">
+    <mat-card class="stat-card pending">
+      <div class="stat-icon">
+        <mat-icon>hourglass_empty</mat-icon>
       </div>
-    </mat-card-content>
-    <mat-card-actions>
-      <button mat-raised-button color="primary" (click)="navigateToSystems()">
-        View Systems
-      </button>
-    </mat-card-actions>
-  </mat-card>
+      <div class="stat-content">
+        <h2 class="stat-value">{{ pendingSystems }}</h2>
+        <p class="stat-label">Pending Systems</p>
+      </div>
+    </mat-card>
+
+    <mat-card class="stat-card active">
+      <div class="stat-icon">
+        <mat-icon>check_circle</mat-icon>
+      </div>
+      <div class="stat-content">
+        <h2 class="stat-value">{{ activeLicenses }}</h2>
+        <p class="stat-label">Active Licenses</p>
+      </div>
+    </mat-card>
+
+    <mat-card class="stat-card expired">
+      <div class="stat-icon">
+        <mat-icon>warning</mat-icon>
+      </div>
+      <div class="stat-content">
+        <h2 class="stat-value">{{ expiredLicenses }}</h2>
+        <p class="stat-label">Expired Licenses</p>
+      </div>
+    </mat-card>
+  </div>
+
+  <div class="dashboard-actions">
+    <button mat-raised-button color="primary" (click)="navigateToSystems()">
+      <mat-icon>list</mat-icon>
+      View Systems
+    </button>
+  </div>
 </div>

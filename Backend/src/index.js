@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const authRoutes = require('./routes/auth.routes');
+const { verifyToken } = require('./middleware/auth.middleware');
 
 // Routes
 const systemRoutes = require('./routes/system.routes.js');
@@ -40,15 +42,21 @@ mongoose.connection.on('disconnected', () => {
 // Routes
 app.use('/api/systems', systemRoutes);
 app.use('/api/licenses', licenseRoutes);
+app.use('/api/auth', authRoutes);
 
+// Protected routes
+app.use('/api', verifyToken);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Internal Server Error', error: err.message });
+  res.status(500).json({
+    success: false,
+    message: 'Something went wrong!'
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 }); 

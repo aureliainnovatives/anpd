@@ -30,11 +30,11 @@ export class SystemListComponent implements OnInit {
   displayedColumns: string[] = [
     'index',
     'uniqueId',
+    'clientName',
     'status',
     'systemInfo',
     'licenseKey',
     'duration',
-    'lastActivated',
     'createdAt',
     'actions'
   ];
@@ -90,6 +90,42 @@ export class SystemListComponent implements OnInit {
         verticalPosition: 'bottom'
       });
     }
+  }
+
+  editClientName(system: System): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Edit Client Name',
+        message: 'Enter the client name for this system:',
+        inputField: true,
+        inputValue: system.clientName || '',
+        inputPlaceholder: 'Client Name'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result !== false && result !== system.clientName) {
+        // Update the client name in the system
+        const updatedSystem = { ...system, clientName: result };
+        
+        // Call the API to update the system
+        this.systemService.updateSystem(system._id, { clientName: result }).subscribe({
+          next: () => {
+            this.snackBar.open('Client name updated successfully', 'Close', {
+              duration: 3000
+            });
+            this.loadSystems(); // Reload the systems list
+          },
+          error: (error) => {
+            console.error('Error updating client name:', error);
+            this.snackBar.open('Error updating client name', 'Close', {
+              duration: 3000
+            });
+          }
+        });
+      }
+    });
   }
 
   renewLicense(system: System): void {

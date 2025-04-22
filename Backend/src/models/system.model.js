@@ -6,6 +6,10 @@ const systemSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  clientName: {
+    type: String,
+    default: ''
+  },
   status: {
     type: String,
     enum: ['pending', 'activated', 'expired'],

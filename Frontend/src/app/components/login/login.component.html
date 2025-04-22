@@ -1,0 +1,54 @@
+<div class="login-container">
+  <div class="login-box">
+    <div class="login-header">
+      <h1>Login</h1>
+      <p class="subtitle">Welcome to ANPD Dashboard</p>
+    </div>
+    <form (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <div class="input-container">
+          <mat-icon class="input-icon">person_outline</mat-icon>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            [(ngModel)]="username"
+            required
+            placeholder="Enter username"
+          >
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="input-container">
+          <mat-icon class="input-icon">lock_outline</mat-icon>
+          <input
+            [type]="showPassword ? 'text' : 'password'"
+            id="password"
+            name="password"
+            [(ngModel)]="password"
+            required
+            placeholder="Enter password"
+          >
+          <button 
+            type="button" 
+            class="password-toggle" 
+            (click)="togglePasswordVisibility()"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+          >
+            <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+      <div class="error-message" *ngIf="errorMessage">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+      <button type="submit" class="login-button" [disabled]="!username || !password">
+        <span>Login</span>
+        <mat-icon>arrow_forward</mat-icon>
+      </button>
+    </form>
+  </div>
+</div> 

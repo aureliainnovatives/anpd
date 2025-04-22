@@ -30,6 +30,7 @@ export interface License {
 export interface System {
   _id: string;
   uniqueId: string;
+  clientName: string;
   systemInfo: SystemInfo;
   status: string;
   createdAt: Date;
@@ -92,5 +93,9 @@ export class SystemService {
 
   registerSystem(system: { uniqueId: string; systemInfo: SystemInfo }): Observable<System> {
     return this.http.post<System>(this.apiUrl, system);
+  }
+
+  updateSystem(id: string, data: Partial<System>): Observable<System> {
+    return this.http.patch<System>(`${this.apiUrl}/${id}`, data);
   }
 } 
