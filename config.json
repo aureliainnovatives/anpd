@@ -65,10 +65,10 @@
         "batch_size": 1,
         "text_recognition_threshold": 0.5,
         "logging": {
-            "enabled": true,
-            "level": "DEBUG",
+            "enabled": false,
+            "level": "ERROR",
             "include_image_debug": false,
-            "log_confidence_threshold": 0.3
+            "log_confidence_threshold": 0.5
         }
     }
 }
