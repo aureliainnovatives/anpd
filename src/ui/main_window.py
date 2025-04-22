@@ -79,14 +79,15 @@ class MainWindow(QMainWindow):
         self.license_check_timer.timeout.connect(self._check_license_status)
         self.license_check_timer.start(5000)  # Check every 5 seconds instead of 60 seconds
         
+        # Initialize automatic renewal timer
+        self.renewal_timer = QTimer()
+        self.renewal_timer.timeout.connect(self._check_license_for_renewal)
+        self.renewal_timer.start(5000)  # Check every 15 seconds
+        
         # Initial checks
         self._check_license_status()
         
         self.license_termination = False  # Add flag to track license termination
-        
-        # Initialize automatic renewal timer
-        self.renewal_timer = QTimer()
-        self.renewal_timer.timeout.connect(self._check_license_for_renewal)
 
     def _create_toolbar(self):
         """Create main toolbar"""
@@ -942,17 +943,17 @@ class MainWindow(QMainWindow):
             if minutes_remaining <= self.license_manager.renewal_period_minutes and minutes_remaining > 0:
                 # Check internet connectivity
                 if self.license_manager._check_internet_connection():
-                    # Attempt renewal
-                    success, message = self.license_manager.renew_license()
+                    # Attempt renewal silently
+                    success, message = self.license_manager.renew_license(is_automatic=True)
                     if success:
-                        # Add notification
-                        self.notification_panel.add_notification("License renewed successfully!")
+                        # Only update the status indicator, no dialog
+                        self._check_license_status()
                     else:
-                        # Add notification for failed renewal
-                        self.notification_panel.add_notification(f"Failed to renew license: {message}")
+                        # Log the failure but don't show dialog
+                        self.logger.warning(f"Automatic renewal failed: {message}")
                 else:
-                    # Add notification for no internet
-                    self.notification_panel.add_notification("No internet connection. Automatic renewal failed.")
+                    # Log no internet but don't show dialog
+                    self.logger.warning("No internet connection. Automatic renewal failed.")
 
         except Exception as e:
             self.logger.error(f"Error in license renewal check: {str(e)}")
@@ -1074,16 +1075,18 @@ class MainWindow(QMainWindow):
                 self.notification_panel.status_label.setText("Renewing license...")
                 
                 # Attempt renewal
-                success, message = self.license_manager.renew_license()
+                success, message = self.license_manager.renew_license(is_automatic=False)
                 
                 # Stop loading state
                 self.notification_panel.stop_loading()
                 
                 if success:
+                    # Show success dialog for manual renewal
                     QMessageBox.information(self, "Success", "License renewed successfully!")
                     self._check_license_status()  # This will update the indicator color
                     self._toggle_notification_panel()  # Hide panel after successful renewal
                 else:
+                    # Show error dialog for manual renewal failure
                     QMessageBox.warning(self, "Error", f"Failed to renew license: {message}")
             else:
                 # If no valid license, proceed with normal activation
@@ -1106,10 +1109,12 @@ class MainWindow(QMainWindow):
                     self.notification_panel.stop_loading()
                     
                     if success:
+                        # Show success dialog for manual activation
                         QMessageBox.information(self, "Success", "License activated successfully!")
                         self._check_license_status()
                         self._toggle_notification_panel()  # Hide panel after successful activation
                     else:
+                        # Show error dialog for manual activation failure
                         QMessageBox.warning(self, "Error", f"Failed to activate license: {message}")
         except Exception as e:
             self.notification_panel.stop_loading()
@@ -1171,7 +1176,7 @@ class MainWindow(QMainWindow):
                 # Only proceed if we're in the renewal period
                 if minutes_remaining <= self.license_manager.renewal_period_minutes and minutes_remaining > 0:
                     # Attempt renewal
-                    success, message = self.license_manager.renew_license()
+                    success, message = self.license_manager.renew_license(is_automatic=False)
                     
                     if success:
                         QMessageBox.information(self, "Success", "License renewed successfully!")
