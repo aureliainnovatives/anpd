@@ -707,8 +707,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Clean up resources when closing"""
         try:
-            # Skip PIN verification if closing due to license termination
-            if not self.license_termination:
+            # Skip PIN verification if closing due to license expiration or termination
+            if not self.license_termination and not hasattr(self, '_closing_due_to_expiry'):
                 # Verify PIN before closing
                 if not self._verify_pin("close"):
                     event.ignore()
@@ -985,41 +985,77 @@ class MainWindow(QMainWindow):
     def _check_license_status(self):
         """Check license status and update notification badge"""
         is_valid, message = self.license_manager.verify_license()
-        if is_valid:
-            try:
-                # Read license file directly to get expiration date
-                license_file = "license.dat"
-                if os.path.exists(license_file):
-                    with open(license_file, 'rb') as f:
-                        encrypted_data = f.read()
-                    license_data = self.license_manager._decrypt_data(encrypted_data)
-                    if license_data and 'duration' in license_data and 'timestamp' in license_data:
-                        # Calculate expiry date based on duration and timestamp
-                        activation_timestamp = license_data['timestamp'] / 1000
-                        activation_date = datetime.fromtimestamp(activation_timestamp)
-                        expiry_date = activation_date + timedelta(minutes=license_data['duration'])
-                        minutes_remaining = int((expiry_date - datetime.now()).total_seconds() / 60)
+        try:
+            # Read license file directly to get expiration date
+            license_file = "license.dat"
+            if os.path.exists(license_file):
+                with open(license_file, 'rb') as f:
+                    encrypted_data = f.read()
+                license_data = self.license_manager._decrypt_data(encrypted_data)
+                if license_data and 'duration' in license_data and 'timestamp' in license_data:
+                    # Calculate expiry date based on duration and timestamp
+                    activation_timestamp = license_data['timestamp'] / 1000
+                    activation_date = datetime.fromtimestamp(activation_timestamp)
+                    expiry_date = activation_date + timedelta(minutes=license_data['duration'])
+                    minutes_remaining = int((expiry_date - datetime.now()).total_seconds() / 60)
+                    
+                    # Update status indicator
+                    self._update_license_status_indicator(minutes_remaining)
+                    
+                    # Check if license has expired
+                    if minutes_remaining <= 0:
+                        # Set flag to bypass PIN check
+                        self._closing_due_to_expiry = True
                         
-                        # Update status indicator
-                        self._update_license_status_indicator(minutes_remaining)
+                        # Hide the window immediately
+                        self.hide()
                         
-                        # Start renewal timer if in renewal period
-                        if minutes_remaining <= self.license_manager.renewal_period_minutes and minutes_remaining > 0:
-                            if not self.renewal_timer.isActive():
-                                self.renewal_timer.start(15000)  # Check every 15 seconds
-                        else:
-                            self.renewal_timer.stop()
-                            
-                        self.notification_badge.setVisible(minutes_remaining <= self.license_manager.renewal_period_minutes)
+                        # Show expiration message
+                        QMessageBox.warning(self, "License Expired", 
+                            "Your license has expired. The application will now close.\nPlease contact the administrator to activate the application.")
+                        
+                        # Stop all running streams and processes
+                        self._stop_all_streams()
+                        
+                        # Close the application
+                        QApplication.quit()
+                        return
+                    
+                    # Start renewal timer if in renewal period
+                    if minutes_remaining <= self.license_manager.renewal_period_minutes and minutes_remaining > 0:
+                        if not self.renewal_timer.isActive():
+                            self.renewal_timer.start(15000)  # Check every 15 seconds
                     else:
-                        self.notification_badge.setVisible(True)
+                        self.renewal_timer.stop()
+                        
+                    self.notification_badge.setVisible(minutes_remaining <= self.license_manager.renewal_period_minutes)
                 else:
                     self.notification_badge.setVisible(True)
-            except Exception as e:
-                self.logger.error(f"Error reading license file: {str(e)}")
+            else:
                 self.notification_badge.setVisible(True)
-        else:
+        except Exception as e:
+            self.logger.error(f"Error reading license file: {str(e)}")
             self.notification_badge.setVisible(True)
+            
+        if not is_valid:
+            self.notification_badge.setVisible(True)
+            # Check if license has expired
+            if "expired" in message.lower():
+                # Set flag to bypass PIN check
+                self._closing_due_to_expiry = True
+                
+                # Hide the window immediately
+                self.hide()
+                
+                # Show expiration message
+                QMessageBox.warning(self, "License Expired", 
+                    "Your license has expired. The application will now close.\nPlease contact the administrator to activate the application.")
+                
+                # Stop all running streams and processes
+                self._stop_all_streams()
+                
+                # Close the application
+                QApplication.quit()
 
     def _activate_license(self):
         """Handle license activation or renewal"""
@@ -1078,4 +1114,27 @@ class MainWindow(QMainWindow):
         """Dismiss the notification panel"""
         self.notification_panel.hide()
         self.notification_badge.hide()
+
+    def _stop_all_streams(self):
+        """Stop all running streams and clean up resources"""
+        try:
+            # Stop all video streams
+            for stream_id, worker in self.detection_workers.items():
+                if worker is not None:
+                    # Stop the worker
+                    worker.stop()
+                    # Wait for worker to finish
+                    worker.wait()
+                    # Clean up worker
+                    worker.deleteLater()
+            
+            # Clear all workers
+            self.detection_workers.clear()
+            
+            # Clear all stream widgets from the grid using the stream_grid's clear method
+            self.stream_grid.clear_all_streams()
+            
+            self.logger.info("All streams stopped and resources cleaned up")
+        except Exception as e:
+            self.logger.error(f"Error stopping streams: {str(e)}")
 
