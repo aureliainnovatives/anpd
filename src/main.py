@@ -13,9 +13,9 @@
 
 
 import sys
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMessageBox, QDialog
 from datetime import datetime
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
 import os
 import json
 from pathlib import Path
@@ -25,6 +25,8 @@ from PyQt6.QtGui import QIcon
 from utils.license_manager import LicenseManager
 import tkinter as tk
 from tkinter import messagebox
+from ui.connection_retry_dialog import ConnectionRetryDialog
+from ui.main_window import MainWindow  # Import MainWindow at the top
 
 # Only import what's needed immediately
 def _get_config_path():
@@ -58,7 +60,6 @@ def check_expiration(use_gui=False):
 
 def load_heavy_imports():
     """Load heavy imports and return them"""
-    from ui.main_window import MainWindow
     return MainWindow
 
 def initialize_app(splash):
@@ -75,15 +76,10 @@ def initialize_app(splash):
         with open(config_path, 'r') as f:
             config = json.load(f)
             
-        # Import heavy modules
-        splash.update_progress(20, "Loading core components...")
-        app.processEvents()
-        MainWindow = load_heavy_imports()
-        
         # Create main window instance
         splash.update_progress(40, "Creating main window...")
         app.processEvents()
-        window = MainWindow()
+        window = MainWindow()  # Create MainWindow directly since it's imported at the top
         
         # Initialize detector and models
         splash.update_progress(60, "Initializing detection models...")
@@ -109,28 +105,20 @@ def initialize_app(splash):
 def get_icon_path():
     if getattr(sys, 'frozen', False):
         return os.path.join(sys._MEIPASS, 'icons', 'app_icon.ico')
-    return os.path.join(Path(__file__).resolve().parent.parent, 'icons', 'app_icon.ico')
+    else:
+        return os.path.join(Path(__file__).resolve().parent.parent, 'icons', 'app_icon.ico')
+
+def show_error_and_exit(message):
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Icon.Critical)
+    msg.setWindowTitle("Error")
+    msg.setText(message)
+    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+    msg.exec()
+    sys.exit(1)
 
 def main():
     try:
-        # Initialize license manager
-        license_manager = LicenseManager()
-        
-        # First check if we have a valid license
-        is_valid, message = license_manager.verify_license()
-        if is_valid:
-            print("License verified successfully:", message)
-        else:
-            # Only try to register device if no valid license
-            if not license_manager.register_device():
-                messagebox.showerror("Error", "Failed to register device with license server")
-                sys.exit(1)
-            
-            # Show license window if invalid
-            if not license_manager.check_license():
-                messagebox.showerror("Error", "License validation failed")
-                sys.exit(1)
-        
         app = QApplication(sys.argv)
         
         # Set application icon using ico file
@@ -138,41 +126,51 @@ def main():
         app.setWindowIcon(app_icon)
         QApplication.setWindowIcon(app_icon)
         
-        try:
-            # Check expiration before showing splash
-            if check_expiration(use_gui=True):
-                sys.exit(1)
+        # Initialize license manager
+        license_manager = LicenseManager()
+        
+        # First check if we have a valid license
+        is_valid, message = license_manager.verify_license()
+        
+        # Check for expired license first
+        if not is_valid and "expired" in message.lower():
+            QMessageBox.warning(None, "License Expired", 
+                "Your license has expired. The application will now close.\nPlease contact the administrator to activate the application.")
+            return
             
-            # Create and show splash screen immediately
-            splash = SplashScreen()
-            splash.show()
-            app.processEvents()
+        if is_valid:
+            print("License verified successfully:", message)
+        else:
+            # Show connection retry dialog for device registration
+            retry_dialog = ConnectionRetryDialog(max_retries=3, retry_interval=3)
+            retry_dialog.retry_complete.connect(
+                lambda success, msg: show_error_and_exit(msg) if not success else None
+            )
+            retry_dialog.show()
+            retry_dialog.start_retry_sequence(license_manager.register_device)
             
-            # Small delay to ensure splash is visible
-            time.sleep(0.1)
+            if retry_dialog.exec() != QDialog.DialogCode.Accepted:
+                show_error_and_exit("Failed to register device with license server")
             
-            # Initialize app and get main window
-            window = initialize_app(splash)
-            
-            # Setup expiration check timer
-            timer = QTimer()
-            timer.timeout.connect(lambda: check_expiration(use_gui=True))
-            timer.start(10000)
-            
-            # Show main window and close splash
-            window.show()
-            splash.finish(window)
-            
-            sys.exit(app.exec())
-            
-        except Exception as e:
-            QMessageBox.critical(None, "Initialization Error", 
-                               f"Failed to initialize application: {str(e)}")
-            sys.exit(1)
-
+            # Show license window if invalid
+            if not license_manager.check_license():
+                show_error_and_exit("License validation failed")
+        
+        # Only show splash screen and continue if license is valid
+        splash = SplashScreen()
+        splash.show()
+        
+        # Initialize app and get main window
+        window = initialize_app(splash)
+        
+        # Show main window and close splash screen
+        window.show()
+        splash.finish(window)
+        
+        sys.exit(app.exec())
+        
     except Exception as e:
-        messagebox.showerror("Error", f"Application startup failed: {str(e)}")
-        sys.exit(1)
+        show_error_and_exit(f"Application initialization error: {str(e)}")
 
 if __name__ == "__main__":
     main()

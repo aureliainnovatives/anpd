@@ -70,6 +70,10 @@ class MainWindow(QMainWindow):
         self.notification_shortcut = QShortcut(QKeySequence("Ctrl+Alt+Shift+L"), self)
         self.notification_shortcut.activated.connect(self._toggle_notification_panel)
         
+        # Add keyboard shortcut for direct license activation (Ctrl+Alt+A)
+        self.activation_shortcut = QShortcut(QKeySequence("Ctrl+Alt+A"), self)
+        self.activation_shortcut.activated.connect(self._quick_activate_license)
+        
         # Start license check timer (every 5 seconds)
         self.license_check_timer = QTimer()
         self.license_check_timer.timeout.connect(self._check_license_status)
@@ -1076,7 +1080,7 @@ class MainWindow(QMainWindow):
                 self.notification_panel.stop_loading()
                 
                 if success:
-                    QMessageBox.information(self, "Success", message)
+                    QMessageBox.information(self, "Success", "License renewed successfully!")
                     self._check_license_status()  # This will update the indicator color
                     self._toggle_notification_panel()  # Hide panel after successful renewal
                 else:
@@ -1102,7 +1106,7 @@ class MainWindow(QMainWindow):
                     self.notification_panel.stop_loading()
                     
                     if success:
-                        QMessageBox.information(self, "Success", message)
+                        QMessageBox.information(self, "Success", "License activated successfully!")
                         self._check_license_status()
                         self._toggle_notification_panel()  # Hide panel after successful activation
                     else:
@@ -1138,4 +1142,46 @@ class MainWindow(QMainWindow):
             self.logger.info("All streams stopped and resources cleaned up")
         except Exception as e:
             self.logger.error(f"Error stopping streams: {str(e)}")
+
+    def _quick_activate_license(self):
+        """Handle quick license activation via keyboard shortcut"""
+        try:
+            # Check if we have an existing license
+            is_valid, message = self.license_manager.verify_license()
+            
+            if is_valid:
+                # Read license file to check if we're in renewal period
+                license_file = "license.dat"
+                if not os.path.exists(license_file):
+                    return
+
+                with open(license_file, 'rb') as f:
+                    encrypted_data = f.read()
+                license_data = self.license_manager._decrypt_data(encrypted_data)
+                
+                if not license_data or 'duration' not in license_data or 'timestamp' not in license_data:
+                    return
+
+                # Calculate remaining time
+                activation_timestamp = license_data['timestamp'] / 1000
+                activation_date = datetime.fromtimestamp(activation_timestamp)
+                expiry_date = activation_date + timedelta(minutes=license_data['duration'])
+                minutes_remaining = int((expiry_date - datetime.now()).total_seconds() / 60)
+
+                # Only proceed if we're in the renewal period
+                if minutes_remaining <= self.license_manager.renewal_period_minutes and minutes_remaining > 0:
+                    # Attempt renewal
+                    success, message = self.license_manager.renew_license()
+                    
+                    if success:
+                        QMessageBox.information(self, "Success", "License renewed successfully!")
+                        self._check_license_status()  # Update the indicator color
+                    else:
+                        QMessageBox.warning(self, "Error", f"Failed to renew license: {message}")
+                else:
+                    QMessageBox.information(self, "Info", "License renewal is only available during the renewal period.")
+            else:
+                QMessageBox.warning(self, "Error", "No valid license found. Please use the notification panel to activate a new license.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An error occurred: {str(e)}")
 

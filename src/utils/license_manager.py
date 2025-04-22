@@ -141,11 +141,11 @@ class LicenseManager:
                 }
             }
             
-            # Increased timeout to 30 seconds
+            # Increased timeout to 10 seconds
             response = requests.post(
                 f"{self.server_url}/systems/register",
                 json=device_info,
-                timeout=30
+                timeout=10
             )
             
             if response.status_code == 200:
@@ -161,15 +161,16 @@ class LicenseManager:
                 print(f"Failed to register device. Status code: {response.status_code}")
                 print(f"Response: {response.text}")
                 return False
+                
         except requests.exceptions.Timeout:
             print("Connection to server timed out")
-            return True if os.path.exists(self.license_file) else False
+            return False
         except requests.exceptions.ConnectionError:
             print("Could not connect to server")
-            return True if os.path.exists(self.license_file) else False
+            return False
         except Exception as e:
             print(f"Error registering device: {e}")
-            return True if os.path.exists(self.license_file) else False
+            return False
 
     def _get_windows_uuid(self):
         """Get Windows UUID using wmic"""
